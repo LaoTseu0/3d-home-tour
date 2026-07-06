@@ -9,7 +9,7 @@
 // fetch:model`), sauf `--strict` (utile en CI).
 
 import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const RELEASE = 'models-v1'
