@@ -22,6 +22,7 @@ import {
   isOpeningKind,
 } from '../lib/opening.js'
 import { elecPayload } from '../lib/elec.js'
+import { isValvablePipe } from '../lib/valve.js'
 import { joineryPayloadFromOpening, findJoinery } from '../lib/joinery.js'
 import { nodeName } from '../lib/naming.js'
 import {
@@ -354,9 +355,11 @@ function EditObject({
   selectable,
   pushable,
   hostable,
+  valvable,
   onSelect,
   onStartPush,
   onHost,
+  onValve,
 }) {
   const effective = useMemo(
     () =>
@@ -386,16 +389,20 @@ function EditObject({
   }, [object3d, selected, baseOpacity])
 
   if (!object3d) return null
-  const interactive = selectable || pushable || hostable
+  const interactive = selectable || pushable || hostable || valvable
   return (
     <primitive
       object={object3d}
       onClick={
-        selectable || hostable
+        selectable || hostable || valvable
           ? (event) => {
               event.stopPropagation()
               // Outil Menuiserie (E14-05) : cliquer une ouverture y pose le cadre.
               if (hostable) onHost(obj.id)
+              // Outil Vanne (E16-04) : cliquer un tuyau y insère une vanne, au
+              // point cliqué (l'intersection monde sur la surface du run).
+              else if (valvable)
+                onValve(obj.id, [event.point.x, event.point.y, event.point.z])
               else onSelect(obj.id)
             }
           : undefined
@@ -981,6 +988,8 @@ export default function EditObjects() {
   // Menuiserie (E14-05) : pas de surface d'esquisse — l'hôte du clic est une
   // OUVERTURE déjà posée (son marqueur devient cliquable), pas une face de mur.
   const hosting = editMode && activeTool === 'joinery'
+  // Vanne (E16-04) : même mécanique — la cible du clic est un TUYAU déjà routé.
+  const valving = editMode && activeTool === 'valve'
   // Outils qui rendent la surface d'esquisse : tracés (rect/circle/arc) + pose
   // d'ouverture (E14-01, clic sur une face de mur).
   const drawing =
@@ -1014,6 +1023,12 @@ export default function EditObjects() {
     }
     const payload = joineryPayloadFromOpening(opening, host, state.joineryVariant)
     if (payload) state.createObject(payload)
+  }, [])
+
+  // Insertion d'une vanne (E16-04) : le store coupe le run en deux + crée la
+  // vanne au point cliqué, en une seule entrée d'historique (cf. insertValve).
+  const onValve = useCallback((objId, point) => {
+    useStore.getState().insertValve(objId, point)
   }, [])
 
   // E12-03 : indexer le modèle importé (BVH three-mesh-bvh) à l'entrée d'Edit mode
@@ -1122,9 +1137,11 @@ export default function EditObjects() {
           selectable={selectable}
           pushable={pushable}
           hostable={hosting && isOpeningKind(obj.kind)}
+          valvable={valving && isValvablePipe(obj)}
           onSelect={selectNode}
           onStartPush={onStartPush}
           onHost={onHostJoinery}
+          onValve={onValve}
         />
       ))}
       {drawing && (
