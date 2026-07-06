@@ -27,6 +27,7 @@
 | E15 | Edit mode — électricité (création) | V2 | M |
 | E16 | Edit mode — plomberie (création) | V2 | S |
 | E17 | Mode visite (vue 1re personne, type « Visite » SketchUp) | V2 | M |
+| E18 | PWA : installation mobile, offline, plein écran | V2 | S |
 
 > Conception détaillée d'Edit mode (E10, E12→E16) et articulation du mode visite (E17) :
 > [docs/edit-mode-design.md](docs/edit-mode-design.md).
@@ -44,6 +45,28 @@ priment sur la priorisation des tableaux ci-dessous.
 | 2026-06-24 | **IHM** : tout outil d'Edit mode se présente en **barre d'icônes + tooltips au survol**, jamais en gros boutons texte. Règle transverse à tout nouvel outil. |
 | 2026-06-24 | **Paradigme SketchUp contextuel** : le plan d'esquisse est déduit du survol (sol/niveau 0 par défaut, face survolée sinon) ; **aucun sélecteur de plan manuel** (le menu XZ/YZ/niveau essayé a été rejeté). |
 | 2026-07-06 | **Visite Niveaux 2 & 3 mise de côté** : le développement de **E17-05, E17-06, E17-07, E17-08 et E17-09** est gelé jusqu'à nouvel ordre du PO. |
+
+---
+
+## Historique du backlog
+
+> L'évolution du produit et du document en un coup d'œil. Le détail incrément
+> par incrément vit dans l'historique git (`git log --follow -- BACKLOG.md`)
+> et les PR liées — pas ici.
+
+| Date | Évolution |
+|---|---|
+| 2026-06-12 | **Création** du backlog depuis `HTD_cahier_des_charges.md`. Sprints S1→S4 livrés dans la foulée : socle (E1), pipeline GLB (E2), chargement + viewer (E3, E4), calques + sélection (E5, E6), store (E7). |
+| 2026-06-13 | **V1 terminée** (S5 — finitions UX, KTX2, tests pipeline, overlay perf E8-01). |
+| 2026-06-20 | Dimensions auto par node dans le pipeline (E2-10, issue #9). |
+| 2026-06-21 | **Cadrage V2** : conception Edit mode (E10 réactivé, E12→E16), ajout du mode visite (E17) et du spike murs ; **go PO** sur undo/redo (E10-03) et ré-export (E10-04). |
+| 2026-06-22 | Visite Niveau 1 livrée (vol libre) ; spike « murs solides » 🟢 — CSG et collision validés sur un vrai export non-manifold. |
+| 2026-06-23 → 29 | **Slice 0 livrée** en 10 incréments : socle Edit mode, ré-export, plan d'esquisse contextuel, Push/Pull, snapping, VCB, noms auto, cercle, arc (E12, E13, E10-03/04). |
+| 2026-06-27 | Plugin SketchUp de nommage livré (E9-01) — E9 complet. |
+| 2026-07-01 | **Slice 1 livrée** (ouvertures : vrai trou CSG, fallback mur « sale », gabarits — E14 ph.1) ; **Slice 2 livrée** (élec : composants ponctuels + câble routé, reste E15-04 optionnel). |
+| 2026-07-04 | **E14 phase 2 complète** : menuiseries, variantes, portes. |
+| 2026-07-04 → 06 | **Slice 3 livrée** (plomberie E16 complet : tuyaux, raccords auto, pente, vannes). |
+| 2026-07-06 | Retrait du journal de réalisation détaillé ; ajout des **Directives produit** ; **gel E17-05→09** (directive PO) ; **E17-10 livré** (joysticks tactiles + manette) ; ajout de l'**Epic E18 — PWA**. |
 
 ---
 
@@ -354,6 +377,32 @@ de SketchUp. Feature **Viewer**, orthogonale à l'édition. Articulation du séq
 
 ---
 
+## Epic E18 — PWA : installation mobile, offline, plein écran (V2 — Viewer)
+
+**Objectif** : transformer l'app en PWA installable — ouverture depuis l'écran
+d'accueil **sans barre d'URL** (répond à [#23](https://github.com/LaoTseu0/HDT/issues/23)
+pour l'app installée), chargement instantané après la première visite grâce au
+cache du GLB (~29 Mo), app shell disponible hors ligne. Outillage standard :
+`vite-plugin-pwa` (Workbox) + `@vite-pwa/assets-generator`.
+
+| ID | User story | Critères d'acceptation | Prio | Pts |
+|---|---|---|---|---|
+| E18-01 | En tant qu'utilisateur mobile, je veux installer l'app sur mon écran d'accueil afin de l'ouvrir en plein écran, sans barre d'URL. | `vite-plugin-pwa` configuré ; manifest généré (pas de `manifest.json` à la main) : `name`, `short_name` (≤ 12 car.), `description`, `lang: fr`, `id`, `start_url`, `scope`, `theme_color`/`background_color` assortis au fond de l'app ; `display: standalone` + `display_override: ['fullscreen']` ; **pas** d'`orientation` figée (visite en paysage, édition en portrait possibles). | S | 3 |
+| E18-02 | En tant qu'utilisateur, je veux une icône d'app propre sur Android et iOS. | Icônes générées depuis `favicon.svg` via `@vite-pwa/assets-generator` : PNG 192 et 512 px + variante 512 px `purpose: maskable` (logo dans la zone de sécurité de 80 %, vérifié sur maskable.app) ; `apple-touch-icon` 180 px dans `index.html` (iOS ignore les icônes du manifest) ; metas ajoutées : `theme-color`, `description`, `mobile-web-app-capable`, status bar iOS. | S | 2 |
+| E18-03 | En tant qu'utilisateur, je veux que l'app s'ouvre instantanément (même hors ligne) après la première visite. | Service worker Workbox (`generateSW`, pas de SW à la main) ; précache limité à l'**app shell** (JS/CSS/HTML/favicon) ; ⚠️ **jamais** les `models/*.glb` (29 Mo > limite Workbox de 2 Mo, et re-téléchargement à chaque mise à jour sinon) : `runtimeCaching` **CacheFirst** sur les GLB (`maxEntries: 2`) et sur les décodeurs `draco/`/`basis/` ; `navigateFallback: index.html` (SPA) ; `registerType: 'autoUpdate'` (le toast « nouvelle version ? » type `prompt` est reporté). | S | 5 |
+| E18-04 | En tant que dev, je veux que les mises à jour de l'app arrivent de façon fiable en prod. | `sw.js` servi avec `Cache-Control: no-cache` (à vérifier sur Vercel ; sinon règle `headers` dans `vercel.json`) ; test grandeur nature : déployer une modif et vérifier qu'elle arrive (piège du SW qui sert l'ancienne version pour toujours) ; `dev-dist/` gitignoré. | S | 2 |
+| E18-05 | En tant qu'utilisateur, je veux une PWA conforme, vérifiée sur appareil réel. | Audit Lighthouse (installabilité) vert sur le build (`npm run build && npm run preview`) ; sur Chrome Android réel : invite « Ajouter à l'écran d'accueil », app installée ouverte **sans barre d'URL** ; DevTools → Offline : app shell chargée + modèle disponible s'il a déjà été visité. | S | 2 |
+
+> **Estimation : 14 pts ≈ 2,5 à 3 jours-homme** (dev solo) — E18-01 ~0,5 j ;
+> E18-02 ~0,25 j ; E18-03 ~1 j (le gros morceau : stratégie de cache du GLB) ;
+> E18-04 ~0,5 j ; E18-05 ~0,5 j (vérifications sur appareil réel comprises).
+> NB : ne remplace pas le bouton `requestFullscreen()` de
+> [#23](https://github.com/LaoTseu0/HDT/issues/23), utile pour l'usage **sans**
+> installation ; dépend du correctif verrou souris mobile
+> [#22](https://github.com/LaoTseu0/HDT/issues/22) pour une visite mobile utilisable.
+
+---
+
 ## Proposition d'ordre de réalisation V1 (sprints indicatifs)
 
 | Sprint | Contenu | Stories |
@@ -400,7 +449,5 @@ et le **mode visite** opérationnel (vol libre, puis collisions).
 
 ---
 
-*Document généré le 2026-06-12 à partir de `HTD_cahier_des_charges.md`.
-Mis à jour le 2026-06-21 (Edit mode V2 : E10 réactivé, epics E12→E16) ;
-le 2026-07-06 (retrait du journal de réalisation, ajout des « Directives produit »,
-gel E17-05→09).*
+*Les mises à jour de ce document sont tracées dans la section
+[Historique du backlog](#historique-du-backlog), en tête de fichier.*
