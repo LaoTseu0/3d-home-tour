@@ -107,7 +107,7 @@ export default function App() {
       <EditBar />
       <InfoPanel />
       <VCBOverlay />
-      <VisitOverlay />
+      {/**<VisitOverlay />**/}
       <VisitSticks />
     </div>
   )
