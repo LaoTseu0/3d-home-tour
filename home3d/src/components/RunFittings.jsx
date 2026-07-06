@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import useStore from '../store/useStore.js'
 import { PIPE_KIND, slopedPoints } from '../lib/plumbing.js'
 import { detectFittings, fittingMesh } from '../lib/fittings.js'
+import { VALVE_KIND, dropFittingsAtValves } from '../lib/valve.js'
 
 // Raccords automatiques aux jonctions de tuyaux (E16-03, cf. lib/fittings).
 // Vit dans le Canvas, actif en vue COMME en édition (le raccord fait partie du
@@ -24,7 +25,10 @@ export default function RunFittings() {
     const pipes = Object.values(objects)
       .filter((o) => o.kind === PIPE_KIND)
       .map((o) => ({ id: o.id, params: { ...o.params, points: slopedPoints(o.params) } }))
-    const fittings = detectFittings(pipes)
+    // Une vanne inline (E16-04) coupe un run en deux tronçons bout à bout : le
+    // « manchon » détecté à la coupe est superflu (la vanne est le raccord).
+    const valves = Object.values(objects).filter((o) => o.kind === VALVE_KIND)
+    const fittings = dropFittingsAtValves(detectFittings(pipes), valves)
     if (!fittings.length) return null
     const position = []
     const index = []

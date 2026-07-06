@@ -5,6 +5,7 @@ import { ELEC_COMPONENTS, ELEC_KINDS, isElecKind } from './elec.js'
 import { runMesh } from './routing.js'
 import { CABLE_KIND } from './cable.js'
 import { PIPE_KIND, slopedPoints } from './plumbing.js'
+import { VALVE_KIND, valveMesh } from './valve.js'
 import { JOINERY_KIND, DOOR_LEAF_KIND, joineryVariantOf } from './joinery.js'
 import { WINDOW_KIND, DOOR_KIND, isOpeningKind } from './opening.js'
 
@@ -542,6 +543,40 @@ function makeGenerateRun(fillColor, edgeColor, resolvePoints = (params) => param
   }
 }
 
+// plomberie.valve — vanne INLINE insérée sur un tuyau (E16-04, cf. lib/valve).
+// params : { centre (monde, sur l'axe du tuyau), dir (axe unitaire), largeur_m,
+// hauteur_m, diametre_mm, famille, section — section du tuyau hôte }. Comme les
+// runs : géométrie en coordonnées MONDE (pas de placeOnPlane), maillage pur
+// (valveMesh). Un ton plus soutenu que le tuyau, comme les raccords E16-03.
+const VALVE_FILL = 0x655cc9
+const VALVE_EDGE = 0xcbc7f2
+
+function generateValve(params) {
+  const { position, index } = valveMesh(params)
+
+  const fillGeo = new THREE.BufferGeometry()
+  fillGeo.setAttribute('position', new THREE.Float32BufferAttribute(position, 3))
+  fillGeo.setIndex(index)
+  fillGeo.computeVertexNormals()
+
+  const fill = new THREE.Mesh(
+    fillGeo,
+    new THREE.MeshStandardMaterial({ color: VALVE_FILL, metalness: 0.1, roughness: 0.7 })
+  )
+  fill.name = '__fill'
+
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(fillGeo, 20),
+    new THREE.LineBasicMaterial({ color: VALVE_EDGE })
+  )
+  edges.name = '__edges'
+  edges.raycast = () => {}
+
+  const group = new THREE.Group()
+  group.add(fill, edges)
+  return group // déjà en coordonnées monde — pas de placeOnPlane
+}
+
 const REGISTRY = {
   'sketch.rect': generateRect,
   'sketch.circle': generateCircle,
@@ -555,6 +590,7 @@ const REGISTRY = {
   [CABLE_KIND]: makeGenerateRun(ELEC_FILL, ELEC_EDGE),
   // Le tuyau rend ses points PENTUS (E16-02) — les clics restent dans params.
   [PIPE_KIND]: makeGenerateRun(PLUMB_FILL, PLUMB_EDGE, slopedPoints),
+  [VALVE_KIND]: generateValve,
   // Tout le catalogue élec partage `generateElec` (seules les dims diffèrent).
   ...Object.fromEntries(ELEC_KINDS.map((k) => [k, generateElec])),
 }
@@ -579,6 +615,7 @@ const KIND_NAMING = {
   [DOOR_LEAF_KIND]: { system: 'ouvertures', type: 'vantail' }, // vantail de porte (E14-07)
   [CABLE_KIND]: { system: 'elec', type: 'cable' }, // câble routé (E15-03)
   [PIPE_KIND]: { system: 'plomberie', type: 'tuyau' }, // tuyau routé (E16-01)
+  [VALVE_KIND]: { system: 'plomberie', type: 'vanne' }, // vanne inline (E16-04)
   // elec.* → système `elec`, type = celui du catalogue (prise, interrupteur…).
   ...Object.fromEntries(
     Object.entries(ELEC_COMPONENTS).map(([kind, c]) => [kind, { system: 'elec', type: c.type }])
@@ -624,6 +661,13 @@ export function referencePoints(obj) {
       type: 'endpoint',
       point: [p[0], p[1], p[2]],
     }))
+  }
+
+  // Vanne inline (E16-04) : son centre (sur l'axe du tuyau coupé) est un point
+  // d'accroche — pratique pour router un piquage jusqu'à la vanne.
+  if (obj.kind === VALVE_KIND) {
+    const c = obj.params.centre
+    return c ? [{ type: 'midpoint', point: [c[0], c[1], c[2]] }] : []
   }
 
   const { origin, u, v, normal } = frameOfObjectPlane(obj.plane)
@@ -739,6 +783,24 @@ export function referencePoints(obj) {
 
 // Dimensions dérivées des params (cohérent avec les `dims` V1, E2-10).
 export function deriveDims(obj) {
+  if (obj.kind === VALVE_KIND) {
+    // Emprise = bounding box monde du maillage (corps + tige + poignée).
+    const { position } = valveMesh(obj.params)
+    if (!position.length) return { largeur_m: 0, profondeur_m: 0, hauteur_m: 0 }
+    const min = [Infinity, Infinity, Infinity]
+    const max = [-Infinity, -Infinity, -Infinity]
+    for (let i = 0; i < position.length; i += 3) {
+      for (let k = 0; k < 3; k++) {
+        if (position[i + k] < min[k]) min[k] = position[i + k]
+        if (position[i + k] > max[k]) max[k] = position[i + k]
+      }
+    }
+    return {
+      largeur_m: Number((max[0] - min[0]).toFixed(3)),
+      profondeur_m: Number((max[2] - min[2]).toFixed(3)),
+      hauteur_m: Number((max[1] - min[1]).toFixed(3)),
+    }
+  }
   if (isRunKind(obj.kind)) {
     // Emprise = bounding box monde du chemin RENDU (pente comprise pour un tuyau).
     const pts = runPointsOf(obj.kind, obj.params)

@@ -19,7 +19,7 @@
 // esthétique low-poly que les runs) depuis le point de jonction le long de
 // chaque direction incidente — maillage via runMesh (lib/routing, partagé).
 
-import { dist, runMesh } from './routing.js'
+import { closestOnPath, dist, runMesh } from './routing.js'
 
 // --- petite algèbre vectorielle (tableaux [x,y,z]) ---
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
@@ -46,23 +46,6 @@ const VERTEX_EPS = 1e-3
 
 const maxSide = (params) =>
   Math.max(Number(params?.largeur_m) || 0, Number(params?.hauteur_m) || 0)
-
-// Point du chemin (polyligne) le plus proche de p : point, index du segment, et
-// distance. Réimplémente la projection segment (cf. lib/snapping) sans dépendance.
-function closestOnPath(points, p) {
-  let best = null
-  for (let i = 0; i < points.length - 1; i++) {
-    const a = points[i]
-    const b = points[i + 1]
-    const ab = sub(b, a)
-    const denom = dot(ab, ab) || 1
-    const t = Math.max(0, Math.min(1, dot(sub(p, a), ab) / denom))
-    const q = add(a, scale(ab, t))
-    const d = dist(p, q)
-    if (!best || d < best.d) best = { point: q, seg: i, d }
-  }
-  return best
-}
 
 // Directions unitaires PARTANT de q le long du chemin de B : si q est (quasi) sur
 // un sommet, vers chacun de ses voisins (1 seule aux extrémités du chemin) ; sinon

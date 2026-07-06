@@ -28,6 +28,30 @@ const norm = (a) => {
 export const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 
 /**
+ * Point d'un chemin (polyligne) le plus proche de `p` : projection sur chaque
+ * segment, on garde la meilleure. Renvoie le point, l'index du segment porteur,
+ * le paramètre `t` ∈ [0,1] sur ce segment et la distance. Partagé par les
+ * raccords (E16-03, lib/fittings) et la vanne inline (E16-04, lib/valve).
+ * @param {number[][]} points chemin (≥ 2 sommets)
+ * @param {number[]} p point requête
+ * @returns {{point:number[], seg:number, t:number, d:number}|null}
+ */
+export function closestOnPath(points, p) {
+  let best = null
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i]
+    const b = points[i + 1]
+    const ab = sub(b, a)
+    const denom = dot(ab, ab) || 1
+    const t = Math.max(0, Math.min(1, dot(sub(p, a), ab) / denom))
+    const q = add(a, scale(ab, t))
+    const d = dist(p, q)
+    if (!best || d < best.d) best = { point: q, seg: i, t, d }
+  }
+  return best
+}
+
+/**
  * Supprime les points consécutifs quasi confondus d'un chemin (clics accidentels,
  * doublon du double-clic de fin). Conserve l'ordre.
  * @param {number[][]} points
