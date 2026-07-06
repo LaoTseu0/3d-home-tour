@@ -18,6 +18,7 @@ import { DEFAULT_ELEC_KIND } from '../lib/elec.js'
 import { DEFAULT_JOINERY_VARIANT } from '../lib/joinery.js'
 import { cablePayloadFromPath, DEFAULT_CABLE_SECTION } from '../lib/cable.js'
 import { pipePayloadFromPath, DEFAULT_PIPE_SECTION } from '../lib/plumbing.js'
+import { splitPipeAt, isValvablePipe } from '../lib/valve.js'
 
 // Id interne STABLE d'un objet app (clé du map `objects`, jamais affichée). Le
 // node name conforme (système__type__zone__niveau__index) en est DÉCOUPLÉ et
@@ -439,6 +440,41 @@ const useStore = create(
               ...state.objects,
               [id]: { ...obj, plane: { ...obj.plane, origin: [o[0], h, o[2]] } },
             },
+          }
+        }),
+
+      // E16-04 : insérer une VANNE sur un tuyau au point cliqué (monde) — coupe
+      // le run en DEUX tronçons + crée l'objet vanne (cf. lib/valve splitPipeAt),
+      // le tout dans UN set() → une seule entrée d'historique (undo restaure le
+      // tuyau entier). Les tronçons héritent kind/params (section, pente…) et
+      // zone/niveau du tuyau d'origine ; la coupe sur une extrémité est refusée.
+      insertValve: (pipeId, worldPoint) =>
+        set((state) => {
+          const pipe = state.objects[pipeId]
+          if (!isValvablePipe(pipe)) return state
+          const split = splitPipeAt(pipe, worldPoint)
+          if (!split) return state
+
+          // Créer AVANT de supprimer : le tuyau d'origine reste dans la table
+          // pendant l'attribution des ids/index → son id et son node name ne
+          // sont pas réutilisés (invariant makeStableId/nextIndex).
+          const objects = { ...state.objects }
+          const { zone, level } = pipe
+          let selected = null
+          for (const payload of [
+            ...split.runs.map((params) => ({ kind: pipe.kind, params, plane: pipe.plane })),
+            split.valve,
+          ]) {
+            const id = makeStableId(objects)
+            const { system, type } = kindNaming(payload.kind)
+            const index = nextIndex(objects, { system, zone, level })
+            objects[id] = { id, system, type, zone, level, index, ...payload }
+            selected = id // la vanne (dernière créée) finit sélectionnée
+          }
+          delete objects[pipeId]
+          return {
+            objects,
+            selectedNode: selected,
           }
         }),
 

@@ -19,6 +19,7 @@ import {
   MAX_PENTE_PCT,
 } from '../lib/plumbing.js'
 import { pathLength } from '../lib/routing.js'
+import { VALVE_KIND } from '../lib/valve.js'
 
 // Libellés FR des niveaux (segment `level` de la convention de nommage).
 const LEVEL_LABELS = {
@@ -179,6 +180,21 @@ function ToolIcon({ id }) {
         <path
           d="M19 12c1.5 2.2 2.4 3.5 2.4 4.8a2.4 2.4 0 0 1-4.8 0c0-1.3.9-2.6 2.4-4.8z"
           fill="currentColor"
+        />
+      </svg>
+    )
+  }
+  if (id === 'valve') {
+    // Vanne : symbole schéma (deux triangles bout à bout) + tige et poignée.
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M4 9v8l8-4zM20 9v8l-8-4z" fill="currentColor" />
+        <path d="M12 13V7" stroke="currentColor" strokeWidth="2" />
+        <path
+          d="M8 6.5h8"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
         />
       </svg>
     )
@@ -495,6 +511,11 @@ const TOOLS = [
     label: 'Tuyau',
     hint: 'Router un tuyau de plomberie (clics successifs, double-clic pour finir)',
   },
+  {
+    id: 'valve',
+    label: 'Vanne',
+    hint: 'Insérer une vanne sur un tuyau (coupe le run en deux)',
+  },
   { id: 'pushpull', label: 'Push/Pull', hint: 'Donner du volume à une face (extrusion)' },
 ]
 
@@ -530,6 +551,8 @@ const TOOL_HINTS = {
     'Choisissez une section, puis cliquez chaque point du trajet (sol ou faces de mur). Double-cliquez ou Entrée pour terminer, Échap pour annuler.',
   pipe:
     'Choisissez une section (cuivre ou évac PVC), puis cliquez chaque point du trajet (sol ou faces de mur). Double-cliquez ou Entrée pour terminer, Échap pour annuler.',
+  valve:
+    'Cliquez un tuyau déjà routé : une vanne s’insère au point cliqué et coupe le run en deux tronçons (annulable en une fois).',
   pushpull: 'Cliquez une forme et tirez pour l’extruder le long de sa normale.',
 }
 
@@ -821,6 +844,15 @@ export default function EditBar() {
                 m
               </p>
             </>
+          ) : selectedObj.kind === VALVE_KIND ? (
+            // Vanne inline (E16-04) : la section vient du tuyau coupé à
+            // l'insertion — rien à éditer ici à part le nommage / suppression.
+            <p className="edit-hint">
+              Vanne{' '}
+              {PIPE_SECTIONS[selectedObj.params.section]?.label ??
+                `Ø${selectedObj.params.diametre_mm ?? '—'}`}{' '}
+              — insérée sur l'axe du tuyau (run coupé en deux tronçons).
+            </p>
           ) : isElecKind(selectedObj.kind) ? (
             <>
               <NumberField
