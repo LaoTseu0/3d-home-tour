@@ -27,10 +27,13 @@
 | E15 | Edit mode — électricité (création) | V2 | M |
 | E16 | Edit mode — plomberie (création) | V2 | S |
 | E17 | Mode visite (vue 1re personne, type « Visite » SketchUp) | V2 | M |
-| E18 | PWA : installation mobile & offline | V2 | S |
+| E18 | PWA : installation mobile & offline | V2 | S ⏸ |
+| E19 | Refonte UX des menus (burger + barre latérale) | V2 | S |
+| E20 | Taxonomie à deux niveaux (systèmes → sous-types) | V2 | S |
 
 > Conception détaillée d'Edit mode (E10, E12→E16) et articulation du mode visite (E17) :
 > [docs/edit-mode-design.md](docs/edit-mode-design.md).
+> ⏸ = en pause (cf. Directives produit).
 
 ---
 
@@ -45,6 +48,8 @@ priment sur la priorisation des tableaux ci-dessous.
 | 2026-06-24 | **IHM** : tout outil d'Edit mode se présente en **barre d'icônes + tooltips au survol**, jamais en gros boutons texte. Règle transverse à tout nouvel outil. |
 | 2026-06-24 | **Paradigme SketchUp contextuel** : le plan d'esquisse est déduit du survol (sol/niveau 0 par défaut, face survolée sinon) ; **aucun sélecteur de plan manuel** (le menu XZ/YZ/niveau essayé a été rejeté). |
 | 2026-07-06 | **Visite Niveaux 2 & 3 mise de côté** : le développement de **E17-05, E17-06, E17-07, E17-08 et E17-09** est gelé jusqu'à nouvel ordre du PO. |
+| 2026-07-07 | **E18 (PWA) mise en pause** : toutes ses stories (E18-01→05) sont gelées. Priorité donnée à **E19** (refonte UX des menus) et **E20** (taxonomie à deux niveaux). |
+| 2026-07-07 | **Taxonomie à deux niveaux (E20)** : la catégorie **et** le sous-type d'un objet sont portés par la **nomenclature du nom** (`système__type__…`), **pas** par le Tag SketchUp du groupe. Le sous-type est le segment `type`, désormais issu d'un **vocabulaire contrôlé par système**. |
 
 ---
 
@@ -68,6 +73,7 @@ priment sur la priorisation des tableaux ci-dessous.
 | 2026-07-04 → 06 | **Slice 3 livrée** (plomberie E16 complet : tuyaux, raccords auto, pente, vannes). |
 | 2026-07-06 | Retrait du journal de réalisation détaillé ; ajout des **Directives produit** ; **gel E17-05→09** (directive PO) ; **E17-10 livré** (joysticks tactiles + manette) ; ajout de l'**Epic E18 — PWA**. |
 | 2026-07-06 | Le plein écran navigateur ([#23](https://github.com/LaoTseu0/HDT/issues/23)) sort d'E18 → nouvelle story **E17-11** (mode visite). |
+| 2026-07-07 | **E18 (PWA) mise en pause** ; ajout de l'**Epic E19** (refonte UX des menus : burger + barre latérale) et de l'**Epic E20** (taxonomie à deux niveaux systèmes → sous-types, portée par la nomenclature du nom). |
 
 ---
 
@@ -379,7 +385,11 @@ de SketchUp. Feature **Viewer**, orthogonale à l'édition. Articulation du séq
 
 ---
 
-## Epic E18 — PWA : installation mobile & offline (V2 — Viewer)
+## Epic E18 — PWA : installation mobile & offline (V2 — Viewer) — ⏸ EN PAUSE
+
+> ⏸ **En pause depuis le 2026-07-07** (directive PO) : toutes les stories
+> E18-01→05 sont gelées le temps de traiter E19 (UX menus) et E20 (taxonomie).
+> Rien n'est abandonné — l'épic reste prêt à reprendre tel quel.
 
 **Objectif** : transformer l'app en PWA installable — ouverture depuis l'écran
 d'accueil **sans barre d'URL**, chargement instantané après la première visite
@@ -403,6 +413,89 @@ Le plein écran **in-navigateur** (usage sans installation) est traité à part 
 > ([#23](https://github.com/LaoTseu0/HDT/issues/23)), utile pour l'usage **sans**
 > installation ; dépend du correctif verrou souris mobile
 > [#22](https://github.com/LaoTseu0/HDT/issues/22) pour une visite mobile utilisable.
+
+---
+
+## Epic E19 — Refonte UX des menus (burger + barre latérale) (V2 — UI)
+
+**Objectif** : remplacer les panneaux flottants dispersés (calques, infos, barre
+d'édition, VCB…) par **une seule barre latérale** ouverte depuis un **bouton
+burger**, organisée en sections **Calques · Edit · Vue · More**. Objectifs :
+lisibilité, place à l'écran (surtout mobile, cf. E17-10), et un point d'entrée
+unique pour toutes les commandes. Reprend la directive IHM du 2026-06-24
+(icônes + tooltips) pour la palette d'outils.
+
+| ID | User story | Critères d'acceptation | Prio | Pts |
+|---|---|---|---|---|
+| E19-01 | En tant qu'utilisateur, je veux un bouton burger qui ouvre/ferme une barre latérale afin d'accéder à tous les menus depuis un point unique. | Bouton burger ancré (coin) ; barre latérale coulissante (ouverture/fermeture animée) ; état d'ouverture dans le store ; ne masque pas le canvas sur desktop (push ou overlay tranché) ; ÉCHAP / clic hors panneau ferme. | S | 3 |
+| E19-02 | En tant qu'utilisateur, je veux la section **Calques** dans la barre afin de piloter la visibilité comme aujourd'hui. | `LayerPanel` migré en section ; parité fonctionnelle (toggle, tout/rien, isoler, couleurs par calque) ; prêt à accueillir le filtrage à deux niveaux d'E20. | S | 3 |
+| E19-03 | En tant qu'utilisateur, je veux la section **Edit** dans la barre afin de créer/éditer sans barre d'outils séparée. | Palette d'outils (icônes + tooltips, directive IHM) + inspector de l'objet sélectionné regroupés dans la section ; VCB conservé ; parité avec l'`EditBar` actuelle. | S | 5 |
+| E19-04 | En tant qu'utilisateur, je veux la section **Vue** afin de régler la navigation et l'affichage. | Regroupe : bascule Orbite/Visite, recentrer, FOV de visite (expose E17-04/09 gelé — au moins le FOV), overlay perf (dev), et le plein écran **E17-11**. | S | 3 |
+| E19-05 | En tant qu'utilisateur, je veux une section **More** afin de retrouver les actions secondaires. | Ouvrir/charger un modèle, infos du modèle (métadonnées scène), à-propos/version ; extensible. | S | 2 |
+| E19-06 | En tant qu'utilisateur mobile, je veux que la barre latérale cohabite avec la visite tactile. | En visite sur tactile, la barre n'entre pas en conflit avec les joysticks (E17-10) ; en portrait, drawer pleine largeur ; pas de scroll parasite. | S | 3 |
+
+> **Estimation : 19 pts ≈ 3 à 4 jours-homme** (dev solo). Chantier surtout de
+> **réagencement** (les panneaux existants sont déjà fonctionnels) : le risque est
+> la parité (ne rien perdre en migrant) plus que la nouveauté. E19-02 est le point
+> de contact avec **E20** (le filtrage à deux niveaux des calques y prendra place).
+
+---
+
+## Epic E20 — Taxonomie à deux niveaux (systèmes → sous-types) (V2 — transverse)
+
+**Objectif** : passer d'une taxonomie **à un niveau** (7 systèmes) à **deux
+niveaux** (système → sous-type), pour classer, filtrer et colorer plus finement.
+**Décision d'architecture (2026-07-07)** : catégorie **et** sous-type sont portés
+par la **nomenclature du nom** (`système__type__…`), **pas** par le Tag SketchUp.
+Le sous-type **est le segment `type`**, qui existe déjà mais en free-form : E20 le
+fait passer à un **vocabulaire contrôlé par système**. Chantier **transverse**
+(pipeline, app, tests, plugin Ruby, docs).
+
+**Pourquoi le nom et pas le Tag** : l'app dérive déjà le calque du **nom**
+([loadModel.js](home3d/src/lib/loadModel.js) lit `extras.layer`, injecté par le
+pipeline depuis `parseNodeName`) ; les Tags SketchUp ne survivent pas de façon
+fiable à l'export glTF (a fortiori des Tags imbriqués). Le segment `type` est donc
+le bon support — zéro changement de schéma, on **contraint un segment existant**.
+
+Vocabulaire cible (labels FR ; le **segment** stocké est normalisé sans accent —
+même distinction label/segment que pour les systèmes, ex. `elec` → « Électricité ») :
+
+| Système (niveau 1) | Sous-types (niveau 2) |
+|---|---|
+| Structure | Murs · Cloisons · Planchers · Toitures · Escaliers · Poutres |
+| Ouvertures | Fenêtres · Portes · Volets · Baies vitrées |
+| Électricité | Câblage · Prises · Interrupteurs · Éclairage |
+| Plomberie | Canalisations · Robinetterie · Éviers · Toilettes |
+| VMC/Chauffage | VMC · Radiateurs · Chaudière · Thermostat |
+| Réseaux | Internet · Téléphone · TV · Sécurité |
+| Terrain | Potager · Arche · Serre · Allée · Clôture · Garage |
+
+| ID | User story | Critères d'acceptation | Prio | Pts |
+|---|---|---|---|---|
+| E20-01 | En tant que dev, je veux LA source unique de la taxonomie à deux niveaux afin qu'app, pipeline, Ruby et docs en héritent. | `SUBTYPES` dans [naming.mjs](home3d/script/naming.mjs) : par système, liste `{ value, label }` (value normalisée) ; typos corrigées (Structures, Réseaux) ; **choix tranché ouvert vs fermé** (cf. note ci-dessous) documenté dans le code. | S | 3 |
+| E20-02 | En tant qu'utilisateur du pipeline, je veux que le sous-type soit validé et enrichi afin d'avoir un classement fiable. | `process.mjs`/`naming.mjs` : `type` validé contre `SUBTYPES` du système (selon E20-01) ; `extras` porte `subtype` + son label ; rapport d'erreur ciblé ; tests `naming.test.mjs` / `naming-app.test.mjs` mis à jour. | S | 5 |
+| E20-03 | En tant qu'utilisateur, je veux voir et éditer le sous-type in-app. | `InfoPanel` affiche le label du sous-type ; `editRegistry` (`kindNaming`) et la génération de nom ([naming.js](home3d/src/lib/naming.js)) alignés sur le vocabulaire ; sélection du sous-type dans l'inspector d'édition. | S | 3 |
+| E20-04 | En tant qu'utilisateur, je veux filtrer/afficher les calques à deux niveaux. | Section **Calques** (E19-02) : arborescence système → sous-type ; visibilité et (option) couleur par sous-type ; « isoler » applicable à un sous-type. | S | 5 |
+| E20-05 | En tant que modeleur, je veux que le plugin SketchUp propose le vocabulaire par système. | [main.rb](sketchup-plugin/home_designer_namer/main.rb) : `TYPES_BY_SYSTEM` aligné sur `SUBTYPES` (miroir de naming.mjs) ; dropdown filtré par système ; comportement ouvert/fermé cohérent avec E20-01. | S | 2 |
+| E20-06 | En tant que dev, je veux la doc alignée sur la taxonomie à deux niveaux. | `HTD_cahier_des_charges.md` (nomenclature), [docs/workflow-sketchup.md](docs/workflow-sketchup.md), [docs/edit-mode-design.md](docs/edit-mode-design.md) mis à jour ; table de correspondance système → sous-types. | S | 2 |
+
+> **Estimation : 20 pts ≈ 4 à 5 jours-homme** (dev solo) — le « gros travail »
+> attendu, mais **contenu** par la décision « nom, pas Tag » : on enrichit un
+> segment existant, pas de refonte de schéma ni de migration des données.
+>
+> **Point à trancher (E20-01) — vocabulaire `type` ouvert ou fermé ?**
+> Aujourd'hui `type` est **libre** (`[a-z0-9_]+`). Le figer à ces listes **fermées**
+> ferait **perdre** des types déjà prévus (structure : `dalle`, `fondation`,
+> `poteau` ; élec : `tableau`, `gaine` ; ouvertures : `velux`, `porte_garage`).
+> **Recommandation : garder `type` ouvert**, avec ces listes comme vocabulaire
+> **canonique/suggéré** (dropdowns + « autre… »), et regrouper l'UI sur ce
+> vocabulaire — un `type` hors liste tombe dans un bucket « Autres » du système.
+> On garde la souplesse de modélisation sans casser les objets existants.
+>
+> **Chevauchements repérés** (à arbitrer en E20-01) : « Garage » est à la fois un
+> sous-type Terrain **et** une zone (`BASE_ZONES`) ; « Sécurité » (Réseaux) recoupe
+> l'alarme ; le niveau 1 perd la finesse porteur/cloison des types actuels
+> (`mur_porteur`/`mur_cloison`) si on ne garde que « Murs » — d'où la reco « ouvert ».
 
 ---
 
