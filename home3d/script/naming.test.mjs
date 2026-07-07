@@ -5,6 +5,9 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import {
   LAYERS_CONFIG,
   NODE_NAME_REGEX,
@@ -431,6 +434,35 @@ describe('SUBTYPES — vocabulaire des sous-types (E20-01)', () => {
     ]
     for (const [system, type] of APP_TYPES) {
       assert.equal(isKnownSubtype(system, type), true, `${system}__${type} hors vocabulaire`)
+    }
+  })
+})
+
+describe('miroir Ruby — TYPES_BY_SYSTEM du plugin SketchUp (E20-05)', () => {
+  // TYPES_BY_SYSTEM (main.rb) est un miroir MANUEL des values de SUBTYPES :
+  // ce test lit le fichier Ruby et échoue au moindre écart (contenu ou ordre),
+  // pour que le vocabulaire ne dérive pas silencieusement entre app et plugin.
+  const mainRb = readFileSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..', '..', 'sketchup-plugin', 'home_designer_namer', 'main.rb'
+    ),
+    'utf8'
+  )
+
+  it('chaque système du plugin liste exactement les values de SUBTYPES', () => {
+    const rubyLists = {}
+    for (const [, system, body] of mainRb.matchAll(/'(\w+)'\s*=>\s*%w\[([^\]]*)\]/g)) {
+      rubyLists[system] = body.trim().split(/\s+/)
+    }
+    // TYPES_BY_SYSTEM est la seule table `'système' => %w[...]` couvrant tous
+    // les systèmes ; BASE_ZONES (autre %w) n'a pas de clé système.
+    for (const system of SYSTEMS) {
+      assert.deepEqual(
+        rubyLists[system],
+        SUBTYPES[system].map((s) => s.value),
+        `TYPES_BY_SYSTEM['${system}'] (main.rb) a dérivé de SUBTYPES.${system}`
+      )
     }
   })
 })
