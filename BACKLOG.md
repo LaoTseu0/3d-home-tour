@@ -28,7 +28,7 @@
 | E16 | Edit mode — plomberie (création) | V2 | S |
 | E17 | Mode visite (vue 1re personne, type « Visite » SketchUp) | V2 | M |
 | E18 | PWA : installation mobile & offline | V2 | S ⏸ |
-| E19 | Refonte UX des menus (burger + barre latérale) | V2 | S |
+| E19 ✅ | Refonte UX des menus (burger + barre latérale) | V2 | S |
 | E20 | Taxonomie à deux niveaux (systèmes → sous-types) | V2 | S |
 
 > Conception détaillée d'Edit mode (E10, E12→E16) et articulation du mode visite (E17) :
@@ -77,6 +77,7 @@ priment sur la priorisation des tableaux ci-dessous.
 | 2026-07-06 | Le plein écran navigateur ([#23](https://github.com/LaoTseu0/HDT/issues/23)) sort d'E18 → nouvelle story **E17-11** (mode visite). |
 | 2026-07-07 | **E18 (PWA) mise en pause** ; ajout de l'**Epic E19** (refonte UX des menus : burger + barre latérale) et de l'**Epic E20** (taxonomie à deux niveaux systèmes → sous-types, portée par la nomenclature du nom). |
 | 2026-07-07 | **E20 livré** (E20-01→06) : vocabulaire `SUBTYPES` (source unique `naming.mjs`, miroir Ruby testé anti-dérive), validation ouverte + extras `subtype`/`subtypeLabel` dans le pipeline, sous-type visible/éditable in-app, calques à deux niveaux (visibilité + isolation par sous-type, bucket « Autres »), docs alignées. Le filtrage prendra sa place dans la barre latérale E19-02 lors d'E19. |
+| 2026-07-07 | **E19 livré** (E19-01→07) : barre latérale unique (burger, overlay) à sections accordéon Calques/Édition/Vue/Plus ; panneau **Info détaché à droite rendu commun** (inspector des objets app déplacé de l'`EditBar`, rectification PO) ; slider FOV de visite ; plein écran E17-11 ; overlay des raccourcis clavier (touche « ? »). |
 
 ---
 
@@ -436,13 +437,13 @@ unique pour toutes les commandes. Reprend la directive IHM du 2026-06-24
 
 | ID | User story | Critères d'acceptation | Prio | Pts |
 |---|---|---|---|---|
-| E19-01 | En tant qu'utilisateur, je veux un bouton burger qui ouvre/ferme une barre latérale afin d'accéder à tous les menus depuis un point unique. | Bouton burger ancré (coin) ; barre latérale coulissante (ouverture/fermeture animée) ; état d'ouverture dans le store ; ne masque pas le canvas sur desktop (push ou overlay tranché) ; ÉCHAP / clic hors panneau ferme. | S | 3 |
-| E19-02 | En tant qu'utilisateur, je veux la section **Calques** dans la barre afin de piloter la visibilité comme aujourd'hui. | `LayerPanel` migré en section ; parité fonctionnelle (toggle, tout/rien, isoler, couleurs par calque) ; prêt à accueillir le filtrage à deux niveaux d'E20. | S | 3 |
-| E19-03 | En tant qu'utilisateur, je veux la section **Edit** dans la barre afin de créer/éditer sans barre d'outils séparée. | Palette d'outils (icônes + tooltips, directive IHM), undo/redo et export regroupés dans la section ; l'**inspector de l'objet sélectionné part dans le panneau Info détaché** (rectification PO : panneau commun objets SketchUp + objets app) ; VCB conservé ; parité avec l'`EditBar` actuelle. | S | 5 |
-| E19-04 | En tant qu'utilisateur, je veux la section **Vue** afin de régler la navigation et l'affichage. | Regroupe : bascule Orbite/Visite, recentrer, FOV de visite (expose E17-04/09 gelé — au moins le FOV), overlay perf (dev), et le plein écran **E17-11**. | S | 3 |
-| E19-05 | En tant qu'utilisateur, je veux une section **More** afin de retrouver les actions secondaires. | Ouvrir/charger un modèle, infos du modèle (métadonnées scène), à-propos/version ; extensible. | S | 2 |
-| E19-06 | En tant qu'utilisateur mobile, je veux que la barre latérale cohabite avec la visite tactile. | En visite sur tactile, la barre n'entre pas en conflit avec les joysticks (E17-10) ; en portrait, drawer pleine largeur ; pas de scroll parasite. | S | 3 |
-| E19-07 | En tant qu'utilisateur, je veux un overlay listant tous les raccourcis clavier de l'app afin de les découvrir sans documentation. | Overlay modal ouvert par la touche « ? » et depuis la barre latérale ; liste complète et à jour (globaux, édition/VCB, visite) ; ÉCHAP / clic hors panneau / ✕ ferme. | S | 2 |
+| E19-01 ✅ | En tant qu'utilisateur, je veux un bouton burger qui ouvre/ferme une barre latérale afin d'accéder à tous les menus depuis un point unique. | Bouton burger ancré (coin) ; barre latérale coulissante (ouverture/fermeture animée) ; état d'ouverture dans le store ; ne masque pas le canvas sur desktop (push ou overlay tranché) ; ÉCHAP / clic hors panneau ferme. | S | 3 |
+| E19-02 ✅ | En tant qu'utilisateur, je veux la section **Calques** dans la barre afin de piloter la visibilité comme aujourd'hui. | `LayerPanel` migré en section ; parité fonctionnelle (toggle, tout/rien, isoler, couleurs par calque) ; prêt à accueillir le filtrage à deux niveaux d'E20. | S | 3 |
+| E19-03 ✅ | En tant qu'utilisateur, je veux la section **Edit** dans la barre afin de créer/éditer sans barre d'outils séparée. | Palette d'outils (icônes + tooltips, directive IHM), undo/redo et export regroupés dans la section ; l'**inspector de l'objet sélectionné part dans le panneau Info détaché** (rectification PO : panneau commun objets SketchUp + objets app) ; VCB conservé ; parité avec l'`EditBar` actuelle. | S | 5 |
+| E19-04 ✅ | En tant qu'utilisateur, je veux la section **Vue** afin de régler la navigation et l'affichage. | Regroupe : bascule Orbite/Visite, recentrer, FOV de visite (expose E17-04/09 gelé — au moins le FOV), overlay perf (dev), et le plein écran **E17-11**. | S | 3 |
+| E19-05 ✅ | En tant qu'utilisateur, je veux une section **More** afin de retrouver les actions secondaires. | Ouvrir/charger un modèle, infos du modèle (métadonnées scène), à-propos/version ; extensible. | S | 2 |
+| E19-06 ✅ | En tant qu'utilisateur mobile, je veux que la barre latérale cohabite avec la visite tactile. | En visite sur tactile, la barre n'entre pas en conflit avec les joysticks (E17-10) ; en portrait, drawer pleine largeur ; pas de scroll parasite. | S | 3 |
+| E19-07 ✅ | En tant qu'utilisateur, je veux un overlay listant tous les raccourcis clavier de l'app afin de les découvrir sans documentation. | Overlay modal ouvert par la touche « ? » et depuis la barre latérale ; liste complète et à jour (globaux, édition/VCB, visite) ; ÉCHAP / clic hors panneau / ✕ ferme. | S | 2 |
 
 > **Estimation : 21 pts ≈ 3 à 4 jours-homme** (dev solo). Chantier surtout de
 > **réagencement** (les panneaux existants sont déjà fonctionnels) : le risque est
