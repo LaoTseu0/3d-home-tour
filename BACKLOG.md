@@ -30,6 +30,8 @@
 | E18 | PWA : installation mobile & offline | V2 | S ⏸ |
 | E19 ✅ | Refonte UX des menus (burger + barre latérale) | V2 | S |
 | E20 | Taxonomie à deux niveaux (systèmes → sous-types) | V2 | S |
+| E21 | Navigation caméra sous Ctrl (PC) | V2 | M |
+| E22 | Poignées de manipulation directe (déformation paramétrique) | V2 | M |
 
 > Conception détaillée d'Edit mode (E10, E12→E16) et articulation du mode visite (E17) :
 > [docs/edit-mode-design.md](docs/edit-mode-design.md).
@@ -52,6 +54,8 @@ priment sur la priorisation des tableaux ci-dessous.
 | 2026-07-07 | **Taxonomie à deux niveaux (E20)** : la catégorie **et** le sous-type d'un objet sont portés par la **nomenclature du nom** (`système__type__…`), **pas** par le Tag SketchUp du groupe. Le sous-type est le segment `type`, désormais issu d'un **vocabulaire contrôlé par système**. |
 | 2026-07-07 | **Segment `type` OUVERT (E20)** : le vocabulaire par système est **canonique/suggéré**, pas fermé. Un `type` hors liste est **accepté** (avertissement, jamais rejet) et rangé en « Autres » — pour ne pas perdre les types déjà prévus ni brider la modélisation. |
 | 2026-07-07 | **Panneau Info (rectification E19)** : il reste **détaché à droite**, hors barre latérale, et devient **commun** aux objets importés de SketchUp et aux objets créés in-app — l'inspector des objets app s'y affiche, plus sous les icônes du menu d'édition. |
+| 2026-07-09 | **Navigation caméra PC sous Ctrl (E21)** : orbite = **Ctrl+clic gauche**, pan = **Ctrl+clic droit**, **partout** (découverte ET édition). Ctrl enfoncé = **verrou d'action** : aucune interaction objet (sélection, pose, tracé, Push/Pull, poignées) ne passe. Le **zoom molette reste libre** (sans Ctrl) ; le tactile est inchangé ; Mac (touche Cmd) non traité pour l'instant. |
+| 2026-07-09 | **Déformation par poignées (E22)** : tirer une poignée de face garde la **face opposée fixe** (même ancrage que le Push/Pull), pas d'étirement symétrique depuis le centre. E22 **absorbe E12-07** et la partie « poignées » d'**E13-04** ; périmètre complet validé, y compris déplacer/tourner (`TransformControls`). |
 
 ---
 
@@ -79,6 +83,7 @@ priment sur la priorisation des tableaux ci-dessous.
 | 2026-07-07 | **E20 livré** (E20-01→06) : vocabulaire `SUBTYPES` (source unique `naming.mjs`, miroir Ruby testé anti-dérive), validation ouverte + extras `subtype`/`subtypeLabel` dans le pipeline, sous-type visible/éditable in-app, calques à deux niveaux (visibilité + isolation par sous-type, bucket « Autres »), docs alignées. Le filtrage prendra sa place dans la barre latérale E19-02 lors d'E19. |
 | 2026-07-07 | **E19 livré** (E19-01→07) : barre latérale unique (burger, overlay) à sections accordéon Calques/Édition/Vue/Plus ; panneau **Info détaché à droite rendu commun** (inspector des objets app déplacé de l'`EditBar`, rectification PO) ; slider FOV de visite ; plein écran E17-11 ; overlay des raccourcis clavier (touche « ? »). |
 | 2026-07-08 | **E17-11 livré** ([#23](https://github.com/LaoTseu0/HDT/issues/23)) : plein écran in-navigateur — hook partagé `useFullscreen`, bouton ⛶ flottant en mode visite + bouton de la section Vue, masqués si l'API est absente (Safari iPhone). |
+| 2026-07-09 | Ajout de l'**Epic E21** (navigation caméra sous Ctrl sur PC, avec verrou d'action) et de l'**Epic E22** (poignées de manipulation directe : déformation paramétrique par poignées d'accroche, réemploi du moteur Push/Pull ; absorbe **E12-07** et la partie poignées d'**E13-04**). Ordre : E21 avant E22 (la convention Ctrl doit précéder les nouveaux handlers de poignées). |
 
 ---
 
@@ -270,7 +275,7 @@ Directives IHM et « paradigme SketchUp contextuel » : voir **Directives produi
 | E12-04 ✅ | En tant qu'utilisateur, je veux saisir une cote au clavier pendant un tracé afin d'être exact. | Taper une longueur/rayon fixe la cote ; unités en mètres (façon VCB SketchUp). | S | 3 |
 | E12-05 ✅ | En tant que dev, je veux un modèle paramétrique afin que les objets créés soient ré-éditables après rechargement. | `extras.edit { kind, plane, params, variant }` ; registre `kind→générateur` ; géométrie **régénérée au chargement** depuis les params ; `dims` recalculés (cohérent E2-10). | M | 8 |
 | E12-06 ✅ | En tant que dev, je veux des node names auto-générés conformes afin de garder le contrat de nommage sans plugin SketchUp. | Nom `système__type__zone__niveau__index` ; index auto-incrémenté par (système, zone, niveau) ; zone choisie dans l'inspector (zone courante par défaut) ; passe la regex de validation. | M | 5 |
-| E12-07 | En tant qu'utilisateur, je veux déplacer/tourner/redimensionner un objet par manipulation directe. | `TransformControls` (déplacer/tourner) + poignées de redimensionnement paramétrique ; respecte le snapping et l'undo/redo. Absorbe **E10-01**. | M | 5 |
+| E12-07 → E22 | En tant qu'utilisateur, je veux déplacer/tourner/redimensionner un objet par manipulation directe. | `TransformControls` (déplacer/tourner) + poignées de redimensionnement paramétrique ; respecte le snapping et l'undo/redo. Absorbe **E10-01**. _**Déplacé (2026-07-09)** : réalisé par l'Epic **E22** (poignées E22-01→04, déplacer/tourner E22-05)._ | M | 5 |
 | E12-08 | En tant qu'utilisateur, je veux donner du volume à une forme 2D avec **Push/Pull** afin de créer un solide sans repasser par SketchUp. | Cliquer une face plane → tirer le long de sa **normale** → extrusion en volume (prisme) ; profondeur calable par **inférence** (E12-03) ou **saisie clavier** (E12-04) ; résultat **paramétrique** (hauteur d'extrusion dans `params`, régénérée au chargement, E12-05) ; undo/redo. _(Ajouté 2026-06-24, directive « façon SketchUp ». Livré sauf la saisie VCB de la profondeur d'extrusion.)_ | M | 5 |
 
 ---
@@ -285,7 +290,7 @@ Premier livrable d'Edit mode, **sans booléen**.
 | E13-01 ✅ | En tant qu'utilisateur, je veux dessiner un rectangle paramétrique afin de poser une forme de base. | Tracé 2 coins (ou centre + coin) sur le plan actif ; paramétrique ; snapping actif. | M | 3 |
 | E13-02 ✅ | En tant qu'utilisateur, je veux dessiner un cercle paramétrique. | Centre + rayon ; saisie numérique du rayon possible (E12-04). | M | 2 |
 | E13-03 ✅ | En tant qu'utilisateur, je veux dessiner un arc de cercle paramétrique. | 3 points (ou centre + début + fin) ; paramétrique. | M | 3 |
-| E13-04 | En tant qu'utilisateur, je veux éditer les paramètres d'une primitive afin de l'ajuster après coup. | Sélection → inspector affiche/édite les cotes ; poignées de redimensionnement ; undo/redo ; **survit au rechargement** (E12-05). | M | 3 |
+| E13-04 | En tant qu'utilisateur, je veux éditer les paramètres d'une primitive afin de l'ajuster après coup. | Sélection → inspector affiche/édite les cotes ; poignées de redimensionnement ; undo/redo ; **survit au rechargement** (E12-05). _Livré sauf les **poignées de redimensionnement**, déplacées vers l'Epic **E22** (2026-07-09)._ | M | 3 |
 
 ---
 
@@ -520,6 +525,64 @@ même distinction label/segment que pour les systèmes, ex. `elec` → « Élect
 
 ---
 
+## Epic E21 — Navigation caméra sous Ctrl (PC) (V2 — UX transverse)
+
+**Objectif** : sur PC, la navigation caméra (orbite/pan) ne se déclenche **que**
+sous **Ctrl** — Ctrl+clic gauche = orbite, Ctrl+clic droit = pan — et, Ctrl
+enfoncé, **aucune action d'objet** ne passe (verrou d'action). Fini le conflit
+« je voulais bouger la vue, j'ai posé un objet ». S'applique **partout**
+(découverte ET édition) ; zoom molette **libre** ; tactile inchangé (pas de
+Ctrl) ; Mac hors scope pour l'instant (directive 2026-07-09).
+
+**Approche technique** : ne PAS couper `enabled` d'OrbitControls (ça tuerait
+aussi le zoom et le tactile) — basculer `controls.mouseButtons` (LEFT=ROTATE /
+RIGHT=PAN quand Ctrl est enfoncé, no-op sinon) depuis des écouteurs
+keydown/keyup globaux, + garde `event.ctrlKey` en tête de chaque handler
+pointeur R3F.
+
+| ID | User story | Critères d'acceptation | Prio | Pts |
+|---|---|---|---|---|
+| E21-01 | En tant qu'utilisateur PC, je veux orbiter avec Ctrl+clic gauche et panner avec Ctrl+clic droit afin de ne jamais bouger la vue par accident. | Sans Ctrl : clic gauche/droit **n'orbitent ni ne pannent plus** ; avec Ctrl : LEFT=ROTATE, RIGHT=PAN (bascule de `mouseButtons` via keydown/keyup, reset sur `blur` pour éviter un Ctrl « collé ») ; **zoom molette toujours actif** sans Ctrl ; tactile (1 doigt orbite, 2 doigts pan/pinch) **inchangé** ; le cas spécial `enabled={!drawingTool}` de [Viewer.jsx](home3d/src/components/Viewer.jsx) devient inutile et disparaît ; mode visite (PointerLock) non concerné. | M | 3 |
+| E21-02 | En tant qu'utilisateur, je veux qu'avec Ctrl enfoncé aucune action d'objet ne se déclenche afin que Ctrl+clic soit un geste de navigation pur. | Garde `if (event.ctrlKey) return` sur **tous** les handlers pointeur : sélection/host/valve + `onPointerDown` Push/Pull ([EditObjects.jsx](home3d/src/components/EditObjects.jsx)), `SketchSurface` (down/move-commit/dblclick), désélection `onPointerMissed` ([Viewer.jsx](home3d/src/components/Viewer.jsx)), sélection des objets importés ([Model.jsx](home3d/src/components/Model.jsx)), audit `RunFittings`/`WallCutter` ; démontrable : outil Rectangle actif, Ctrl+clic gauche **orbite sans poser** de tracé ; relâcher Ctrl en cours de drag caméra ne déclenche rien. | M | 3 |
+| E21-03 | En tant qu'utilisateur, je veux une affordance visuelle et une doc à jour afin de découvrir la nouvelle convention. | Curseur `grab`/`grabbing` sur le canvas quand Ctrl est enfoncé ; `ShortcutsOverlay` (touche « ? ») et README mis à jour (Ctrl+clic gauche = orbite, Ctrl+clic droit = pan, molette = zoom). | S | 2 |
+
+> **Prérequis d'E22** : le verrou d'action (E21-02) doit être en place avant
+> d'ajouter les handlers de poignées — la convention s'applique à eux aussi.
+
+---
+
+## Epic E22 — Poignées de manipulation directe (déformation paramétrique) (V2 — Edit mode)
+
+**Objectif** : un objet app sélectionné (mode édition, outil Sélection) affiche
+des **poignées d'accroche** ; les tirer **déforme l'objet** selon l'axe de la
+poignée — sans changer d'outil, sans passer par l'inspector. Réalise **E12-07**
+(absorbé) et la partie « poignées » d'**E13-04**.
+
+**Approche technique** : le moteur existe à 80 % — le Push/Pull
+([EditObjects.jsx](home3d/src/components/EditObjects.jsx) `onStartPush`/`onMove`/`onUp`)
+fait déjà « drag le long d'un axe → change une cote param → face opposée ancrée
+→ commit une seule entrée d'historique ». Une poignée n'est qu'un **déclencheur
+alternatif** de ce moteur avec un axe **connu d'avance** (au lieu d'être déduit
+de la face cliquée). Positions des poignées calculées analytiquement depuis
+params + repère du plan, comme [`referencePoints`](home3d/src/lib/editRegistry.js).
+**Face opposée fixe** (directive 2026-07-09). Tous les handlers respectent le
+verrou Ctrl (E21-02).
+
+| ID | User story | Critères d'acceptation | Prio | Pts |
+|---|---|---|---|---|
+| E22-01 | En tant que dev, je veux le moteur « drag sur axe connu » extrait et réutilisable, démontré par des poignées de face sur le rectangle. | Refacto du Push/Pull en module/hook partagé (drag le long d'un axe donné → patch param + origin, commit au relâché, une entrée d'historique) — le Push/Pull existant le consomme sans régression ; `sketch.rect` sélectionné → 6 poignées de face (±u=largeur, ±v=profondeur, ±normale=hauteur) ; poignées à **taille écran constante**, colorées par axe (convention `axisColorForDir`), hover + curseur dédié ; **face opposée fixe** ; masquées hors (édition + outil Sélection + objet sélectionné). | M | 8 |
+| E22-02 | En tant qu'utilisateur, je veux déformer un cercle par poignées afin d'ajuster rayon et hauteur au geste. | `sketch.circle` : poignée radiale (rayon_m, direction u depuis le centre) + poignées ±normale (hauteur) ; formes **plates** (h≈0) : poignées d'arête dans le plan ; réemploi du socle E22-01. | M | 3 |
+| E22-03 | En tant qu'utilisateur, je veux l'accroche et la saisie clavier pendant le drag d'une poignée afin d'être exact. | Le drag d'une poignée alimente le snapping (E12-03, `computeSnap` : références du modèle + grille) et la **VCB** (E12-04 : taper une cote pendant le drag fixe la valeur exacte) — même confort que le tracé ; règle aussi la dette « VCB du Push/Pull » notée en E12-08. | M | 5 |
+| E22-04 | En tant qu'utilisateur, je veux des poignées sur l'arc et les objets muraux afin de tout ajuster au geste. | `sketch.arc` : poignée radiale (rayon_m) + poignées aux 2 extrémités (angle_balayage_deg) + hauteur ; ouverture/porte/menuiserie/composant élec : poignées largeur/hauteur dans le repère du mur (u/v, origin = seuil) ; les kinds sans déformation géométrique (runs routés, vanne) n'affichent **pas** de poignées. | M | 5 |
+| E22-05 | En tant qu'utilisateur, je veux déplacer et tourner un objet entier par manipulation directe afin de le repositionner sans le retracer. | `TransformControls` (drei) sur l'objet sélectionné : **translation** dans le plan de l'objet (+ hauteur au sol pour les composants muraux, cohérent `setObjectFloorHeight`) et **rotation** autour de la normale ; patch de `plane.origin`/orientation paramétrique (survit au rechargement, E12-05) ; snapping + undo/redo ; bascule claire déformation ↔ déplacement (pas de gizmo superposé aux poignées) ; clôt **E12-07** (et absorbe E10-01). | M | 5 |
+| E22-06 | En tant qu'utilisateur, je veux un contour de sélection et une doc à jour afin de lire d'un coup d'œil ce qui est manipulable. | Bounding box discrète de l'objet sélectionné (support visuel des poignées) ; polish (z-order, tailles, densité des poignées au zoom) ; `ShortcutsOverlay` + docs mis à jour. | S | 2 |
+
+> **Estimation : 28 pts.** L'ordre E22-01 → 06 est incrémental : chaque story est
+> démontrable seule ; E22-02→04 sont des extensions à faible risque du socle
+> E22-01 ; E22-05 est indépendant des poignées (gizmo séparé).
+
+---
+
 ## Proposition d'ordre de réalisation V1 (sprints indicatifs)
 
 | Sprint | Contenu | Stories |
@@ -549,6 +612,8 @@ dérisquage. Détail : [docs/edit-mode-design.md](docs/edit-mode-design.md) § 6
 | **Slice 2 — Électricité** | Prise / interrupteur / boîte / compteur + câble routé (section rectangulaire). | E15 | ✅ 2026-07-01 (reste E15-04, optionnel) |
 | **E14 ph.2 — Menuiseries** | Cadre + vitrage, variantes, portes (composants posés, **pas de booléen**). | E14 ph.2 | ✅ 2026-07-04 |
 | **Slice 3 — Plomberie** | Tuyaux cuivre/PVC/évac (réemploi du routage), pente, coudes/raccords auto, valves. | E16 | ✅ 2026-07-06 |
+| **Navigation Ctrl** | Orbite/pan **sous Ctrl uniquement** + verrou d'action (Ctrl+clic = navigation pure). **Avant E22** : la convention doit précéder les handlers de poignées. | E21 | à faire |
+| **Poignées de manipulation directe** | Déformation paramétrique par poignées (rect/cercle/arc/objets muraux), snapping + VCB au drag, déplacer/tourner. Absorbe E12-07 + poignées E13-04. | E22 | à faire |
 | **Visite — Niveaux 2 & 3** | **Collisions + gravité** (marche, escaliers) puis finitions. | E17 ph.2/3 | ⏸ mis de côté (directive PO 2026-07-06) |
 
 > **Menuiserie des fenêtres (E14 phase 2)** : posée **après la Slice 2**, car le cadre est
