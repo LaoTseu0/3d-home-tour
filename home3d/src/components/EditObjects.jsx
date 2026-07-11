@@ -9,8 +9,9 @@ import {
   faceFrame,
   worldToPlane,
   planeToWorld,
-  extrudeHeightFromRay,
 } from '../lib/workPlanes.js'
+import useAxisDrag from '../lib/useAxisDrag.js'
+import DeformHandles from './DeformHandles.jsx'
 import { angleOf, nextSweep } from '../lib/sketchArc.js'
 import {
   openingPayload,
@@ -37,7 +38,8 @@ import {
 import { isChainVisible } from '../lib/appearance.js'
 
 // Rendu des objets créés in-app (Edit mode, Slice 0) + outils de tracé sur le
-// PLAN D'ESQUISSE CONTEXTUEL (E12-02, façon SketchUp) et Push/Pull (E12-08).
+// PLAN D'ESQUISSE CONTEXTUEL (E12-02, façon SketchUp), Push/Pull (E12-08) et
+// poignées de déformation (E22-01, cf. DeformHandles + lib/useAxisDrag).
 // Vit dans le Canvas. Les objets sont DÉRIVÉS du store via le registre
 // paramétrique : changer un param régénère la géométrie.
 
@@ -87,13 +89,7 @@ function liftedAlongNormal(world, normal, eps) {
   ]
 }
 
-const rayArrays = (ray) => [
-  [ray.origin.x, ray.origin.y, ray.origin.z],
-  [ray.direction.x, ray.direction.y, ray.direction.z],
-]
-
 const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-const addScaled3 = (a, b, s) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s]
 
 // Face cliquée d'une forme → axe du repère (u/v/normal) le plus aligné avec sa
 // normale monde, et de quel côté (signe). Détermine quelle cote le Push/Pull
@@ -1000,12 +996,6 @@ export default function EditObjects() {
   const glb = useStore((state) => state.glb)
   const nodes = useStore((state) => state.nodes)
   const viewMode = useStore((state) => state.viewMode)
-  const setExtrude = useStore((state) => state.setExtrude)
-  const updateObjectParams = useStore((state) => state.updateObjectParams)
-
-  const gl = useThree((state) => state.gl)
-  const camera = useThree((state) => state.camera)
-  const raycaster = useThree((state) => state.raycaster)
 
   // Sélection des objets app : alignée sur les objets importés (Model.jsx) —
   // active en mode découverte (orbite) ET en Édition avec l'outil Sélection ;
@@ -1066,24 +1056,10 @@ export default function EditObjects() {
 
   // ── Push/Pull (E12-08) : extruder/redimensionner par la face cliquée ─────────
   // Marche sur TOUTE face d'une forme : la face détermine la cote modifiée
-  // (largeur/profondeur/hauteur) ; la face opposée reste fixe (décalage d'origine).
-  // `pushRef` = données du drag ; `pushing` (re)branche les écouteurs fenêtre
-  // (le pointeur sort de la forme pendant le tirage).
-  const pushRef = useRef(null)
-  const [pushing, setPushing] = useState(false)
-
-  const rayFromClient = useCallback(
-    (cx, cy) => {
-      const rect = gl.domElement.getBoundingClientRect()
-      const ndc = new THREE.Vector2(
-        ((cx - rect.left) / rect.width) * 2 - 1,
-        -((cy - rect.top) / rect.height) * 2 + 1
-      )
-      raycaster.setFromCamera(ndc, camera)
-      return raycaster.ray
-    },
-    [gl, camera, raycaster]
-  )
+  // (largeur/profondeur/hauteur). Le moteur du drag (aperçu, face opposée fixe,
+  // commit en une entrée d'historique) est PARTAGÉ avec les poignées de
+  // déformation (E22-01) : lib/useAxisDrag.
+  const { startDrag, dragging } = useAxisDrag()
 
   const onStartPush = useCallback(
     (objId, event) => {
@@ -1093,64 +1069,21 @@ export default function EditObjects() {
       // composant élec posé n'est pas un volume à tirer.
       if (!obj.kind.startsWith('sketch.')) return
       const axis = pickPushAxis(obj, event)
-      const center = obj.plane?.origin ?? [0, 0, 0]
-      const baseParam = Number(obj.params[axis.key]) || 0
-      const [ro, rd] = rayArrays(event.ray)
-      pushRef.current = {
-        id: objId,
-        paramKey: axis.key,
-        anchored: axis.anchored,
-        axisVec: axis.vec,
-        sign: axis.sign,
-        outward: axis.outward,
-        baseParam,
-        baseOrigin: center,
-        h0: extrudeHeightFromRay(center, axis.outward, ro, rd),
-      }
-      setExtrude({ id: objId, paramKey: axis.key, value: baseParam, origin: center })
-      gl.domElement.setPointerCapture?.(event.pointerId)
-      setPushing(true)
+      startDrag(
+        { id: objId, paramKey: axis.key, axisVec: axis.vec, sign: axis.sign, anchored: axis.anchored },
+        event
+      )
     },
-    [gl, setExtrude]
+    [startDrag]
   )
 
-  useEffect(() => {
-    if (!pushing) return
-    const onMove = (e) => {
-      const p = pushRef.current
-      if (!p) return
-      const [ro, rd] = rayArrays(rayFromClient(e.clientX, e.clientY))
-      const disp = extrudeHeightFromRay(p.baseOrigin, p.outward, ro, rd) - p.h0
-      const value = Math.max(p.baseParam + disp, 0.01)
-      const delta = value - p.baseParam
-      // Garder la face OPPOSÉE fixe : axe centré (u/v) → demi-décalage ; axe normal
-      // ancré à la base (sol/plan) → décalage seulement si on pousse la face « base ».
-      const shift = p.anchored ? ((p.sign - 1) / 2) * delta : (p.sign * delta) / 2
-      const origin = addScaled3(p.baseOrigin, p.axisVec, shift)
-      setExtrude({
-        id: p.id,
-        paramKey: p.paramKey,
-        value: Number(value.toFixed(3)),
-        origin: origin.map((c) => Number(c.toFixed(4))),
-      })
-    }
-    const onUp = () => {
-      const p = pushRef.current
-      pushRef.current = null
-      const ex = useStore.getState().extrude
-      setExtrude(null)
-      if (p && ex && Math.abs(ex.value - p.baseParam) >= 0.01) {
-        updateObjectParams(p.id, { [p.paramKey]: ex.value }, { origin: ex.origin })
-      }
-      setPushing(false)
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-    }
-  }, [pushing, rayFromClient, setExtrude, updateObjectParams])
+  // E22-01 : poignées de déformation sur l'objet app sélectionné — visibles
+  // seulement en (édition + outil Sélection), jamais en visite. Le registre
+  // (deformHandles) décide quels kinds en portent (rect pour l'instant).
+  const selectedObj =
+    editMode && activeTool === 'select' && viewMode !== 'visit'
+      ? objects[selectedNode]
+      : undefined
 
   return (
     <>
@@ -1170,6 +1103,14 @@ export default function EditObjects() {
           onValve={onValve}
         />
       ))}
+      {selectedObj && (
+        <DeformHandles
+          obj={selectedObj}
+          preview={extrude?.id === selectedObj.id ? extrude : undefined}
+          onStartDrag={startDrag}
+          dragging={dragging}
+        />
+      )}
       {drawing && (
         <SketchSurface
           tool={activeTool}
