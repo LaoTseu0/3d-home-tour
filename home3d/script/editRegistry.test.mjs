@@ -163,6 +163,57 @@ describe('deformHandles', () => {
     assert.deepEqual(h['+n'].axis, [0, 0, 1])
   })
 
+  it('cercle plat (E22-02) : 4 radiales cardinales + extrusion au centre', () => {
+    const obj = {
+      kind: 'sketch.circle',
+      params: { rayon_m: 2 },
+      plane: ground,
+    }
+    const hs = deformHandles(obj)
+    assert.equal(hs.length, 5)
+    const h = byKey(obj)
+    assert.deepEqual(h['+u'].point, [2, 0, 0]) // cardinal +u (dans le plan)
+    assert.deepEqual(h['-u'].point, [-2, 0, 0])
+    assert.deepEqual(h['+v'].point, [0, 0, 2]) // v = +Z au sol
+    assert.deepEqual(h['+n'].point, [0, 0, 0]) // extrusion depuis la forme plate
+    for (const k of ['+u', '-u', '+v', '-v']) assert.equal(h[k].paramKey, 'rayon_m')
+    assert.equal(h['+n'].paramKey, 'hauteur_m')
+  })
+
+  it('cylindre (E22-02) : radiales à mi-hauteur, ±n base/sommet = 6 poignées', () => {
+    const obj = {
+      kind: 'sketch.circle',
+      params: { rayon_m: 2, hauteur_m: 3 },
+      plane: ground,
+    }
+    assert.equal(deformHandles(obj).length, 6)
+    const h = byKey(obj)
+    assert.deepEqual(h['+u'].point, [2, 1.5, 0]) // radiale à mi-hauteur
+    assert.deepEqual(h['-v'].point, [0, 1.5, -2])
+    assert.deepEqual(h['+n'].point, [0, 3, 0]) // sommet
+    assert.deepEqual(h['-n'].point, [0, 0, 0]) // base
+  })
+
+  it('radiales du cercle : centre FIXE (axe sortant, sign=+1, anchored)', () => {
+    const obj = {
+      kind: 'sketch.circle',
+      params: { rayon_m: 2, hauteur_m: 3 },
+      plane: ground,
+    }
+    const h = byKey(obj)
+    for (const k of ['+u', '-u', '+v', '-v']) {
+      // sign=+1 + anchored=true → décalage d'origine nul dans le moteur de
+      // drag (shift = ((sign-1)/2)·delta = 0) : le rayon grandit, le centre
+      // ne bouge pas.
+      assert.equal(h[k].sign, 1)
+      assert.equal(h[k].anchored, true)
+    }
+    // L'axe radial est SORTANT : la poignée −u se tire le long de −u.
+    // (comparaison à tolérance : la négation produit des −0)
+    assert.ok(h['-u'].axis.every((x, i) => close(x, [-1, 0, 0][i])))
+    assert.ok(h['+u'].axis.every((x, i) => close(x, [1, 0, 0][i])))
+  })
+
   it('extrusion descendante (hauteur < 0) : côtés base/sommet inversés', () => {
     const obj = {
       kind: 'sketch.rect',

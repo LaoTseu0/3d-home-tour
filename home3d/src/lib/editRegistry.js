@@ -781,28 +781,31 @@ export function referencePoints(obj) {
   return []
 }
 
-// Poignées de déformation paramétrique d'un objet app (E22-01, manipulation
+// Poignées de déformation paramétrique d'un objet app (E22-01/02, manipulation
 // directe). Renvoie des descripteurs { key, paramKey, axis, sign, anchored,
 // point } consommés par DeformHandles + le moteur de drag (lib/useAxisDrag) :
-// tirer la poignée le long de `axis` (±sign) change `paramKey` en gardant la
-// face opposée fixe. Calcul ANALYTIQUE depuis params + repère du plan (comme
-// referencePoints) → cohérent par construction avec la géométrie générée.
-//   - sketch.rect solide : 6 poignées de face — ±u (largeur, à mi-hauteur),
-//     ±v (profondeur, à mi-hauteur), ±normale (hauteur, base + sommet) ;
-//   - sketch.rect plat : 5 poignées — ±u, ±v dans le plan + UNE poignée
-//     d'extrusion au centre (même geste que le Push/Pull sur la face plate).
-// Les autres kinds viendront en E22-02/04 ; les kinds sans déformation
+// tirer la poignée le long de `axis·sign` change `paramKey`. Calcul ANALYTIQUE
+// depuis params + repère du plan (comme referencePoints) → cohérent par
+// construction avec la géométrie générée.
+//   - sketch.rect (E22-01) : 6 poignées de face en solide — ±u (largeur, à
+//     mi-hauteur), ±v (profondeur, à mi-hauteur), ±normale (hauteur, base +
+//     sommet) ; 5 en plat (±u, ±v dans le plan + UNE poignée d'extrusion au
+//     centre, même geste que le Push/Pull sur la face plate) ;
+//   - sketch.circle (E22-02) : 4 poignées RADIALES aux points cardinaux
+//     (rayon_m, centre FIXE — le rayon grandit autour du centre, comportement
+//     poignée de rayon SketchUp) + ±normale (hauteur) comme le rectangle ;
+//     plat → radiales d'arête dans le plan + extrusion au centre.
+// L'arc et les objets muraux viendront en E22-04 ; les kinds sans déformation
 // géométrique (runs routés, vanne…) n'affichent PAS de poignées.
 export function deformHandles(obj) {
-  if (obj.kind !== 'sketch.rect') return []
+  const kind = obj.kind
+  if (kind !== 'sketch.rect' && kind !== 'sketch.circle') return []
 
   const { origin, u, v, normal } = frameOfObjectPlane(obj.plane)
   const h = Number(obj.params.hauteur_m) || 0
   const solid = Math.abs(h) >= 0.001
   const hs = h < 0 ? -1 : 1 // extrusion descendante : côtés base/sommet inversés
-  const hu = Math.max(Number(obj.params.largeur_m) || 0, 0.001) / 2
-  const hv = Math.max(Number(obj.params.profondeur_m) || 0, 0.001) / 2
-  const zc = solid ? h / 2 : 0 // faces latérales : poignée à mi-hauteur
+  const zc = solid ? h / 2 : 0 // poignées latérales/radiales : à mi-hauteur
 
   // Point = origin + su·u + sv·v + sn·normal (même repère que referencePoints).
   const at = (su, sv, sn) => [
@@ -811,18 +814,47 @@ export function deformHandles(obj) {
     origin[2] + u[2] * su + v[2] * sv + normal[2] * sn,
   ]
 
-  // Mêmes axes/ancrages que pickPushAxis (Push/Pull E12-08) : u/v = géométrie
-  // CENTRÉE (anchored=false, demi-décalage d'origine) ; normale = base ANCRÉE
-  // sur le plan d'esquisse (anchored=true).
-  const handles = [
-    { key: '+u', paramKey: 'largeur_m', axis: u, sign: 1, anchored: false, point: at(hu, 0, zc) },
-    { key: '-u', paramKey: 'largeur_m', axis: u, sign: -1, anchored: false, point: at(-hu, 0, zc) },
-    { key: '+v', paramKey: 'profondeur_m', axis: v, sign: 1, anchored: false, point: at(0, hv, zc) },
-    { key: '-v', paramKey: 'profondeur_m', axis: v, sign: -1, anchored: false, point: at(0, -hv, zc) },
-    // Extrémité de l'extrusion (sommet) ; pour une forme plate c'est LA poignée
-    // d'extrusion, posée au centre de la face.
-    { key: '+n', paramKey: 'hauteur_m', axis: normal, sign: hs, anchored: true, point: at(0, 0, h) },
-  ]
+  const handles = []
+
+  if (kind === 'sketch.rect') {
+    const hu = Math.max(Number(obj.params.largeur_m) || 0, 0.001) / 2
+    const hv = Math.max(Number(obj.params.profondeur_m) || 0, 0.001) / 2
+    // Mêmes axes/ancrages que pickPushAxis (Push/Pull E12-08) : u/v = géométrie
+    // CENTRÉE (anchored=false, demi-décalage d'origine → face opposée fixe).
+    handles.push(
+      { key: '+u', paramKey: 'largeur_m', axis: u, sign: 1, anchored: false, point: at(hu, 0, zc) },
+      { key: '-u', paramKey: 'largeur_m', axis: u, sign: -1, anchored: false, point: at(-hu, 0, zc) },
+      { key: '+v', paramKey: 'profondeur_m', axis: v, sign: 1, anchored: false, point: at(0, hv, zc) },
+      { key: '-v', paramKey: 'profondeur_m', axis: v, sign: -1, anchored: false, point: at(0, -hv, zc) }
+    )
+  }
+
+  if (kind === 'sketch.circle') {
+    const r = Math.max(Number(obj.params.rayon_m) || 0, 0.001)
+    // Poignées radiales : l'axe du drag est la direction radiale SORTANTE
+    // (±u/±v) avec sign=+1 et anchored=true → décalage d'origine nul, le
+    // CENTRE reste fixe pendant que le rayon suit la poignée (contrairement
+    // aux faces du rectangle, une « face opposée » n'a pas de sens ici).
+    const neg = (a) => [-a[0], -a[1], -a[2]]
+    handles.push(
+      { key: '+u', paramKey: 'rayon_m', axis: u, sign: 1, anchored: true, point: at(r, 0, zc) },
+      { key: '-u', paramKey: 'rayon_m', axis: neg(u), sign: 1, anchored: true, point: at(-r, 0, zc) },
+      { key: '+v', paramKey: 'rayon_m', axis: v, sign: 1, anchored: true, point: at(0, r, zc) },
+      { key: '-v', paramKey: 'rayon_m', axis: neg(v), sign: 1, anchored: true, point: at(0, -r, zc) }
+    )
+  }
+
+  // Hauteur (commun) : normale ANCRÉE à la base sur le plan d'esquisse (mêmes
+  // ancrages que le Push/Pull). Extrémité de l'extrusion (sommet) ; pour une
+  // forme plate c'est LA poignée d'extrusion, posée au centre de la face.
+  handles.push({
+    key: '+n',
+    paramKey: 'hauteur_m',
+    axis: normal,
+    sign: hs,
+    anchored: true,
+    point: at(0, 0, h),
+  })
   if (solid) {
     handles.push({
       key: '-n',
