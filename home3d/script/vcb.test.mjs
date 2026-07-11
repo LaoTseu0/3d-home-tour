@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { parseVcb, applyVcbToDraft } from '../src/lib/vcb.js'
+import { parseVcb, applyVcbToDraft, parseVcbLength } from '../src/lib/vcb.js'
 
 // Module vcb PUR (parsing + maths sur (s,t)) → testable hors navigateur.
 
@@ -65,5 +65,24 @@ describe('applyVcbToDraft', () => {
     const flat = { start: [2, 2], current: [2, 2], frame: {} }
     const r = applyVcbToDraft(flat, { width: 1, depth: 1 })
     assert.deepEqual(r.current, [3, 3])
+  })
+})
+
+// parseVcbLength (E22-03) : cote unique d'un drag sur axe (poignée / Push/Pull).
+describe('parseVcbLength', () => {
+  it('parse une cote simple, décimale virgule ou point', () => {
+    assert.deepEqual(parseVcbLength('2,5'), { length: 2.5 })
+    assert.deepEqual(parseVcbLength('0.8'), { length: 0.8 })
+  })
+
+  it('ignore tout au-delà d’un « ; » (une seule cote a du sens sur un axe)', () => {
+    assert.deepEqual(parseVcbLength('2;9'), { length: 2 })
+  })
+
+  it('vide, invalide ou ≤ 0 → null (retour au glissé)', () => {
+    assert.equal(parseVcbLength(''), null)
+    assert.equal(parseVcbLength('abc'), null)
+    assert.equal(parseVcbLength('-2'), null)
+    assert.equal(parseVcbLength('0'), null)
   })
 })

@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { deformHandles } from '../lib/editRegistry.js'
 import { frameOfObjectPlane } from '../lib/workPlanes.js'
 import { axisColorForDir } from '../lib/snapping.js'
+import { worldPerPixel } from '../lib/snapRefs.js'
 
 // Poignées de déformation paramétrique (E22-01) : l'objet app sélectionné
 // (mode édition, outil Sélection) affiche des poignées de face ; les tirer
@@ -14,17 +15,8 @@ import { axisColorForDir } from '../lib/snapping.js'
 const HANDLE_PX = 11 // arête écran d'une poignée (px, ~constante au zoom)
 const HOVER_SCALE = 1.45 // grossissement au survol
 
-// Taille monde d'un pixel écran à la position de la poignée (même géométrie que
-// worldRadiusForPixels du snapping — ici par frame, sur la caméra courante).
-const _pos = new THREE.Vector3()
-function worldPerPixel(position, camera, viewportHeight) {
-  if (camera.isOrthographicCamera) {
-    return (camera.top - camera.bottom) / camera.zoom / viewportHeight
-  }
-  const dist = camera.position.distanceTo(_pos.copy(position))
-  const worldHeight = 2 * dist * Math.tan((camera.fov * Math.PI) / 360)
-  return worldHeight / viewportHeight
-}
+// Tampon réutilisé pour worldPerPixel (lib/snapRefs, point en tableau [x,y,z]).
+const _p = [0, 0, 0]
 
 /**
  * @param {object} obj      objet app sélectionné (store.objects)
@@ -87,7 +79,10 @@ export default function DeformHandles({ obj, preview, onStartDrag, dragging }) {
     for (const h of handles) {
       const mesh = refs.current[h.key]
       if (!mesh) continue
-      const s = HANDLE_PX * worldPerPixel(mesh.position, camera, size.height)
+      _p[0] = mesh.position.x
+      _p[1] = mesh.position.y
+      _p[2] = mesh.position.z
+      const s = HANDLE_PX * worldPerPixel(_p, camera, size.height)
       mesh.scale.setScalar(hovered === h.key ? s * HOVER_SCALE : s)
     }
   })
@@ -116,6 +111,8 @@ export default function DeformHandles({ obj, preview, onStartDrag, dragging }) {
                 axisVec: h.axis,
                 sign: h.sign,
                 anchored: h.anchored,
+                // La poignée est l'ancre de la mesure et du snapping (E22-03).
+                refPoint: h.point,
               },
               event
             )

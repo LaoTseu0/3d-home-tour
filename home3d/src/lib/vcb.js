@@ -82,6 +82,18 @@ export function applyVcbRadiusToDraft(draft, parsed) {
 }
 
 /**
+ * Parse la saisie VCB d'une COTE unique (drag sur axe d'une poignée ou d'un
+ * Push/Pull, E22-03) : une seule valeur = la cote en mètres (largeur,
+ * profondeur, hauteur ou rayon selon l'axe tiré).
+ * @returns {{ length:number } | null} `null` si vide ou invalide.
+ */
+export function parseVcbLength(text) {
+  if (!text) return null
+  const v = parseToken(String(text).split(';')[0])
+  return v == null ? null : { length: v }
+}
+
+/**
  * Parse la saisie VCB d'un angle (balayage d'arc, E13-03) : une valeur en DEGRÉS,
  * signe et magnitude > 360 admis (arc majeur, sens horaire/anti-horaire).
  * Diffère de parseToken (qui rejette ≤ 0) : un angle peut être négatif.

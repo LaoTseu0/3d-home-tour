@@ -8,6 +8,7 @@ import {
   closestPointBetweenLines,
   axisColorForDir,
   pickBestSnap,
+  valueOnAxis,
   SNAP_PRIORITY,
   AXIS_COLORS,
 } from '../src/lib/snapping.js'
@@ -150,5 +151,33 @@ describe('axisColorForDir', () => {
 
   it('direction en biais → couleur « off » (magenta)', () => {
     assert.equal(axisColorForDir([1, 1, 0]), AXIS_COLORS.off)
+  })
+})
+
+// valueOnAxis (E22-03) : cote atteinte quand la face tirée passe par un point
+// de référence — invariant « la face se déplace de (value − base) le long de
+// outward » du moteur useAxisDrag.
+describe('valueOnAxis', () => {
+  it('référence devant la face → cote augmentée de la distance projetée', () => {
+    // Face à x=1 (refPoint), tirée le long de +X, base 2 m ; référence à x=2,5.
+    const v = valueOnAxis([2.5, 7, -3], [1, 0, 0], [1, 0, 0], 2)
+    assert.ok(close(v, 3.5)) // 2 + (2,5 − 1)
+  })
+
+  it('référence derrière la face → cote réduite (projection signée)', () => {
+    const v = valueOnAxis([0.4, 0, 0], [1, 0, 0], [1, 0, 0], 2)
+    assert.ok(close(v, 1.4)) // 2 − 0,6
+  })
+
+  it('seule la composante le long de outward compte (hors-axe ignoré)', () => {
+    // outward = −Z ; la référence est décalée en X/Y, sans effet.
+    const v = valueOnAxis([9, 9, -2], [0, 0, 0], [0, 0, -1], 1)
+    assert.ok(close(v, 3)) // 1 + 2 le long de −Z
+  })
+
+  it('axe oblique unitaire : projection exacte', () => {
+    const s = Math.SQRT1_2
+    const v = valueOnAxis([1, 1, 0], [0, 0, 0], [s, s, 0], 0.5)
+    assert.ok(close(v, 0.5 + Math.SQRT2))
   })
 })

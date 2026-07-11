@@ -60,9 +60,12 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
       const { viewMode, pointerLocked, editMode, setActiveTool } = useStore.getState()
 
-      // VCB (E12-04) : pendant un tracé, on capte la saisie de cote AVANT les
-      // raccourcis (sinon taper une cote déclencherait R/G/V/E…).
-      if (editMode && useStore.getState().draft && handleVcbKey(event)) return
+      // VCB (E12-04) : pendant un tracé OU un drag sur axe (poignée/Push-Pull,
+      // E22-03), on capte la saisie de cote AVANT les raccourcis (sinon taper
+      // une cote déclencherait R/G/V/E…). Pour un drag, Entrée/Échap sont
+      // aussi écoutés par le moteur (useAxisDrag : valider / annuler).
+      const { draft, extrude } = useStore.getState()
+      if (editMode && (draft || extrude) && handleVcbKey(event)) return
 
       // Undo/redo (Edit mode uniquement) : Ctrl/Cmd+Z, +Maj pour rétablir ; Ctrl+Y.
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {

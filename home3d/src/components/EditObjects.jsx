@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import useStore from '../store/useStore.js'
 import { generateObject, disposeObject, referencePoints } from '../lib/editRegistry.js'
-import { ensureBoundsTree, meshReferencesNear } from '../lib/bvh.js'
+import { ensureBoundsTree } from '../lib/bvh.js'
 import {
   groundFrame,
   faceFrame,
@@ -34,7 +34,10 @@ import {
   axisColorForDir,
   pickBestSnap,
   SNAP_COLORS,
+  SNAP_THRESHOLD_PX,
+  GRID_STEP_M,
 } from '../lib/snapping.js'
+import { worldToScreen, meshRefsNear } from '../lib/snapRefs.js'
 import { isChainVisible } from '../lib/appearance.js'
 
 // Rendu des objets créés in-app (Edit mode, Slice 0) + outils de tracé sur le
@@ -49,11 +52,10 @@ const PLANE_FILL = '#378add'
 const PLANE_EDGE = '#5a9fd6'
 const PREVIEW_SIZE = 1.6 // m — emprise de l'aperçu du plan au survol
 const PREVIEW_DIV = 4 // subdivisions de la grille d'aperçu
-const SNAP_THRESHOLD_PX = 14 // rayon d'accroche à l'écran (E12-03)
-const SNAP_QUERY_MARGIN = 1.6 // sur-collecte BVH vs seuil px (le gate exact reste pickBestSnap)
 const INFER_SOURCES = 12 // # de références les plus proches alimentant axes/intersections
 const INFER_LINE_LEN = 60 // m — demi-longueur d'une ligne d'inférence dessinée
-const GRID_STEP_M = 0.1 // pas de la grille d'accroche (E12-03)
+// Seuil d'accroche (px) et pas de grille : SNAP_THRESHOLD_PX / GRID_STEP_M,
+// partagés avec le drag sur axe (lib/snapping, E22-03).
 
 // Grille (segments dans le plan XY local centré) — en LIGNES, pour ne pas
 // teinter le modèle derrière.
@@ -157,42 +159,6 @@ function probeSketch(event, glbScene, rc, nodes) {
   return { frame: groundFrame(), hit: null }
 }
 
-// Position écran (pixels, repère canvas) d'un point monde. Vecteur réutilisé : le
-// snapping projette des dizaines de candidats par déplacement souris.
-const _projV = new THREE.Vector3()
-function worldToScreen(point, camera, rect) {
-  _projV.set(point[0], point[1], point[2]).project(camera)
-  return {
-    x: (_projV.x * 0.5 + 0.5) * rect.width,
-    y: (-_projV.y * 0.5 + 0.5) * rect.height,
-  }
-}
-
-// Rayon MONDE correspondant à `pixels` à l'écran, à la profondeur d'un point — pour
-// dimensionner la requête de proximité BVH d'après le seuil d'accroche en pixels
-// (constant à l'écran, façon SketchUp, quel que soit le zoom).
-const _radV = new THREE.Vector3()
-function worldRadiusForPixels(point, pixels, camera, rect) {
-  if (camera.isOrthographicCamera) {
-    const worldPerPx = (camera.top - camera.bottom) / camera.zoom / rect.height
-    return pixels * worldPerPx
-  }
-  const dist = camera.position.distanceTo(_radV.set(point[0], point[1], point[2]))
-  const worldHeight = 2 * dist * Math.tan((camera.fov * Math.PI) / 360)
-  return pixels * (worldHeight / rect.height)
-}
-
-// Sommets monde du triangle touché.
-function triangleWorldVerts(hit) {
-  const pos = hit.object.geometry.attributes.position
-  const m = hit.object.matrixWorld
-  const v = new THREE.Vector3()
-  return [hit.face.a, hit.face.b, hit.face.c].map((i) => {
-    v.fromBufferAttribute(pos, i).applyMatrix4(m)
-    return [v.x, v.y, v.z]
-  })
-}
-
 // Projection orthogonale d'un point sur le plan d'esquisse actif. Le tracé vit sur
 // CE plan : on y ramène toute accroche (sinon le marqueur 3D et le coin du
 // rectangle, reprojeté par worldToPlane, divergeraient). Une référence hors plan
@@ -213,31 +179,6 @@ function nearestByScreen(points, cursor, camera, rect, k) {
   })
   scored.sort((a, b) => a.d - b.d)
   return scored.slice(0, k)
-}
-
-// Références d'accroche du MESH importé près du curseur. Requête de proximité
-// `three-mesh-bvh` (E12-03) : sommets + arêtes des triangles à portée d'écran,
-// PAS seulement le triangle directement survolé. Repli sur le triangle survolé si
-// le mesh n'a pas de boundsTree. Renvoie sommets et arêtes en MONDE (non projetés).
-function meshRefsNear(hit, freeWorld, camera, rect) {
-  const radius = worldRadiusForPixels(
-    freeWorld,
-    SNAP_THRESHOLD_PX * SNAP_QUERY_MARGIN,
-    camera,
-    rect
-  )
-  const refs = meshReferencesNear(hit.object, freeWorld, radius)
-  if (refs) return refs
-  // Fallback : le seul triangle survolé (comportement E12-03 inc.1).
-  const [a, b, c] = triangleWorldVerts(hit)
-  return {
-    verts: [a, b, c],
-    edges: [
-      [a, b],
-      [b, c],
-      [c, a],
-    ],
-  }
 }
 
 /**
@@ -1070,7 +1011,16 @@ export default function EditObjects() {
       if (!obj.kind.startsWith('sketch.')) return
       const axis = pickPushAxis(obj, event)
       startDrag(
-        { id: objId, paramKey: axis.key, axisVec: axis.vec, sign: axis.sign, anchored: axis.anchored },
+        {
+          id: objId,
+          paramKey: axis.key,
+          axisVec: axis.vec,
+          sign: axis.sign,
+          anchored: axis.anchored,
+          // Le point saisi sur la face : ancre de la mesure et du snapping
+          // (E22-03) — la face suit le curseur là où on l'a attrapée.
+          refPoint: [event.point.x, event.point.y, event.point.z],
+        },
         event
       )
     },
@@ -1122,6 +1072,8 @@ export default function EditObjects() {
       {draft && <DraftPreview draft={draft} />}
       {draft?.snap && <SnapMarker snap={draft.snap} />}
       {draft?.snap?.lines && <InferenceLines snap={draft.snap} />}
+      {/* Accroche d'un drag sur axe (poignée / Push/Pull, E22-03). */}
+      {extrude?.snap && <SnapMarker snap={extrude.snap} />}
     </>
   )
 }
