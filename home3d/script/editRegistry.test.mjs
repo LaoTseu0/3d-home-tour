@@ -1,7 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { referencePoints, generateObject, deriveDims } from '../src/lib/editRegistry.js'
+import {
+  referencePoints,
+  generateObject,
+  deriveDims,
+  deformHandles,
+} from '../src/lib/editRegistry.js'
 import { JOINERY_KIND, DOOR_LEAF_KIND } from '../src/lib/joinery.js'
 
 // referencePoints est PUR (params + repère du plan → points monde) : testable hors
@@ -75,6 +80,151 @@ describe('referencePoints', () => {
     assert.ok(has(pts, 'endpoint', [-0.8, 1, 0])) // coin seuil gauche
     assert.ok(has(pts, 'endpoint', [0.8, 2.4, 0])) // coin haut droit
     assert.ok(has(pts, 'midpoint', [0, 1.7, 0])) // centre
+  })
+})
+
+// deformHandles (E22-01) : poignées de déformation — positions/axes ANALYTIQUES
+// depuis params + repère du plan (même contrat de pureté que referencePoints),
+// consommées par DeformHandles + le moteur de drag (lib/useAxisDrag).
+describe('deformHandles', () => {
+  // Repère sol : u=+X, v=+Z, normal=+Y.
+  const ground = { origin: [0, 0, 0], u: [1, 0, 0], v: [0, 0, 1], normal: [0, 1, 0] }
+  const byKey = (obj) => Object.fromEntries(deformHandles(obj).map((h) => [h.key, h]))
+
+  it('kind sans déformation géométrique → aucune poignée', () => {
+    assert.deepEqual(
+      deformHandles({ kind: 'elec.cable', params: { points: [] }, plane: {} }),
+      []
+    )
+    assert.deepEqual(deformHandles({ kind: 'does.not.exist', params: {}, plane: {} }), [])
+  })
+
+  it('rectangle plat : 5 poignées — ±u, ±v en bord + extrusion au centre', () => {
+    const obj = {
+      kind: 'sketch.rect',
+      params: { largeur_m: 2, profondeur_m: 4 },
+      plane: ground,
+    }
+    const hs = deformHandles(obj)
+    assert.equal(hs.length, 5)
+    const h = byKey(obj)
+    assert.deepEqual(h['+u'].point, [1, 0, 0]) // milieu du bord +u
+    assert.deepEqual(h['-v'].point, [0, 0, -2])
+    assert.deepEqual(h['+n'].point, [0, 0, 0]) // extrusion depuis la forme plate
+    assert.equal(h['+u'].paramKey, 'largeur_m')
+    assert.equal(h['+v'].paramKey, 'profondeur_m')
+    assert.equal(h['+n'].paramKey, 'hauteur_m')
+  })
+
+  it('boîte extrudée : 6 poignées — faces latérales à mi-hauteur, ±n base/sommet', () => {
+    const obj = {
+      kind: 'sketch.rect',
+      params: { largeur_m: 2, profondeur_m: 4, hauteur_m: 3 },
+      plane: ground,
+    }
+    assert.equal(deformHandles(obj).length, 6)
+    const h = byKey(obj)
+    assert.deepEqual(h['+u'].point, [1, 1.5, 0]) // centre de la face +u (mi-hauteur)
+    assert.deepEqual(h['-v'].point, [0, 1.5, -2])
+    assert.deepEqual(h['+n'].point, [0, 3, 0]) // face sommet
+    assert.deepEqual(h['-n'].point, [0, 0, 0]) // base (sur le plan d'esquisse)
+  })
+
+  it('axes/ancrages conformes au Push/Pull (face opposée fixe)', () => {
+    const obj = {
+      kind: 'sketch.rect',
+      params: { largeur_m: 2, profondeur_m: 4, hauteur_m: 3 },
+      plane: ground,
+    }
+    for (const h of deformHandles(obj)) {
+      // u/v = géométrie centrée (demi-décalage) ; normale = base ancrée au plan.
+      assert.equal(h.anchored, h.paramKey === 'hauteur_m')
+      assert.equal(Math.abs(h.sign), 1)
+    }
+    const h = byKey(obj)
+    assert.equal(h['+n'].sign, 1)
+    assert.equal(h['-n'].sign, -1)
+    assert.deepEqual(h['+v'].axis, [0, 0, 1]) // l'axe est le v du plan
+    assert.deepEqual(h['-v'].axis, [0, 0, 1]) // même axe, signe opposé
+    assert.equal(h['-v'].sign, -1)
+  })
+
+  it('repère mural : les poignées suivent u/v/normal du plan de l’objet', () => {
+    // Mur dans le plan XY, normale +Z : u=+X (horizontal), v=+Y (vertical).
+    const wall = { origin: [0, 1, 0], u: [1, 0, 0], v: [0, 1, 0], normal: [0, 0, 1] }
+    const obj = {
+      kind: 'sketch.rect',
+      params: { largeur_m: 2, profondeur_m: 1, hauteur_m: 0.5 },
+      plane: wall,
+    }
+    const h = byKey(obj)
+    assert.deepEqual(h['+v'].point, [0, 1.5, 0.25]) // v vertical, mi-épaisseur normale
+    assert.deepEqual(h['+n'].point, [0, 1, 0.5]) // extrémité de l'extrusion
+    assert.deepEqual(h['+n'].axis, [0, 0, 1])
+  })
+
+  it('cercle plat (E22-02) : 4 radiales cardinales + extrusion au centre', () => {
+    const obj = {
+      kind: 'sketch.circle',
+      params: { rayon_m: 2 },
+      plane: ground,
+    }
+    const hs = deformHandles(obj)
+    assert.equal(hs.length, 5)
+    const h = byKey(obj)
+    assert.deepEqual(h['+u'].point, [2, 0, 0]) // cardinal +u (dans le plan)
+    assert.deepEqual(h['-u'].point, [-2, 0, 0])
+    assert.deepEqual(h['+v'].point, [0, 0, 2]) // v = +Z au sol
+    assert.deepEqual(h['+n'].point, [0, 0, 0]) // extrusion depuis la forme plate
+    for (const k of ['+u', '-u', '+v', '-v']) assert.equal(h[k].paramKey, 'rayon_m')
+    assert.equal(h['+n'].paramKey, 'hauteur_m')
+  })
+
+  it('cylindre (E22-02) : radiales à mi-hauteur, ±n base/sommet = 6 poignées', () => {
+    const obj = {
+      kind: 'sketch.circle',
+      params: { rayon_m: 2, hauteur_m: 3 },
+      plane: ground,
+    }
+    assert.equal(deformHandles(obj).length, 6)
+    const h = byKey(obj)
+    assert.deepEqual(h['+u'].point, [2, 1.5, 0]) // radiale à mi-hauteur
+    assert.deepEqual(h['-v'].point, [0, 1.5, -2])
+    assert.deepEqual(h['+n'].point, [0, 3, 0]) // sommet
+    assert.deepEqual(h['-n'].point, [0, 0, 0]) // base
+  })
+
+  it('radiales du cercle : centre FIXE (axe sortant, sign=+1, anchored)', () => {
+    const obj = {
+      kind: 'sketch.circle',
+      params: { rayon_m: 2, hauteur_m: 3 },
+      plane: ground,
+    }
+    const h = byKey(obj)
+    for (const k of ['+u', '-u', '+v', '-v']) {
+      // sign=+1 + anchored=true → décalage d'origine nul dans le moteur de
+      // drag (shift = ((sign-1)/2)·delta = 0) : le rayon grandit, le centre
+      // ne bouge pas.
+      assert.equal(h[k].sign, 1)
+      assert.equal(h[k].anchored, true)
+    }
+    // L'axe radial est SORTANT : la poignée −u se tire le long de −u.
+    // (comparaison à tolérance : la négation produit des −0)
+    assert.ok(h['-u'].axis.every((x, i) => close(x, [-1, 0, 0][i])))
+    assert.ok(h['+u'].axis.every((x, i) => close(x, [1, 0, 0][i])))
+  })
+
+  it('extrusion descendante (hauteur < 0) : côtés base/sommet inversés', () => {
+    const obj = {
+      kind: 'sketch.rect',
+      params: { largeur_m: 2, profondeur_m: 2, hauteur_m: -1 },
+      plane: ground,
+    }
+    const h = byKey(obj)
+    assert.deepEqual(h['+n'].point, [0, -1, 0]) // extrémité sous le plan
+    assert.equal(h['+n'].sign, -1) // on la tire vers −normale
+    assert.equal(h['-n'].sign, 1)
+    assert.deepEqual(h['+u'].point, [1, -0.5, 0]) // faces latérales à mi-hauteur
   })
 })
 
