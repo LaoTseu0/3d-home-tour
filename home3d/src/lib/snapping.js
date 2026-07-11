@@ -26,9 +26,35 @@ const normalize = (a) => {
   return [a[0] / l, a[1] / l, a[2] / l]
 }
 
+// Seuil d'accroche à l'écran (px, constant quel que soit le zoom, façon
+// SketchUp) et pas de la grille du plan d'esquisse (E12-03) — partagés entre le
+// tracé (EditObjects) et le drag sur axe (useAxisDrag, E22-03).
+export const SNAP_THRESHOLD_PX = 14
+export const GRID_STEP_M = 0.1
+
 /** Milieu de [a, b]. */
 export function midpoint(a, b) {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]
+}
+
+/**
+ * Valeur de cote qu'atteindrait un drag sur axe (E22-03) pour que la face/
+ * poignée tirée passe par le point `p` : la face part de `refPoint` et se
+ * déplace de `value − baseParam` le long de `outward` (invariant du moteur
+ * useAxisDrag, face opposée/centre fixes) → value = base + (p − ref)·outward.
+ * @param {number[]} p         point de référence visé (monde)
+ * @param {number[]} refPoint  point de la face/poignée au DÉBUT du drag (monde)
+ * @param {number[]} outward   direction du drag (unitaire monde, axe·signe)
+ * @param {number} baseParam   cote au début du drag (m)
+ * @returns {number} cote snappée (m)
+ */
+export function valueOnAxis(p, refPoint, outward, baseParam) {
+  return (
+    baseParam +
+    (p[0] - refPoint[0]) * outward[0] +
+    (p[1] - refPoint[1]) * outward[1] +
+    (p[2] - refPoint[2]) * outward[2]
+  )
 }
 
 /** Point du SEGMENT [a, b] le plus proche de p (paramètre borné à [0, 1]). */

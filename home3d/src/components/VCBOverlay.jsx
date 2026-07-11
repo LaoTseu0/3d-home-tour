@@ -7,6 +7,14 @@ import useStore from '../store/useStore.js'
 const TOOLS_WITH_VCB = new Set(['rect', 'circle', 'arc'])
 const fmt = (m) => Number(m.toFixed(2)).toString().replace('.', ',')
 
+// Libellé de la cote tirée pendant un drag sur axe (poignée / Push/Pull, E22-03).
+const PARAM_LABELS = {
+  largeur_m: 'Largeur',
+  profondeur_m: 'Profondeur',
+  hauteur_m: 'Hauteur',
+  rayon_m: 'Rayon',
+}
+
 // Cote vive + libellé + invite, selon l'outil (et l'étape pour l'arc).
 function describe(activeTool, draft) {
   if (activeTool === 'circle') {
@@ -37,13 +45,23 @@ export default function VCBOverlay() {
   const editMode = useStore((state) => state.editMode)
   const activeTool = useStore((state) => state.activeTool)
   const draft = useStore((state) => state.draft)
+  const extrude = useStore((state) => state.extrude)
   const vcbText = useStore((state) => state.vcbText)
 
-  if (!editMode || !TOOLS_WITH_VCB.has(activeTool)) return null
-  const { label, unit, live, hint } = describe(activeTool, draft)
+  if (!editMode || (!extrude && !TOOLS_WITH_VCB.has(activeTool))) return null
+  // Drag sur axe en cours (poignée / Push/Pull, E22-03) : la cote tirée prime
+  // sur l'affichage d'outil — quel que soit l'outil actif (Sélection incluse).
+  const { label, unit, live, hint } = extrude
+    ? {
+        label: PARAM_LABELS[extrude.paramKey] ?? 'Cote',
+        unit: ' m',
+        live: fmt(extrude.value),
+        hint: 'Tapez la cote puis Entrée',
+      }
+    : describe(activeTool, draft)
   // Un tracé est « en cours » dès qu'il y a un draft (l'arc affiche une cote vive
-  // même entre deux clics, sans glissé).
-  const active = !!draft
+  // même entre deux clics, sans glissé) — ou un drag de poignée.
+  const active = !!draft || !!extrude
 
   return (
     <div className="vcb-box" aria-live="polite">
