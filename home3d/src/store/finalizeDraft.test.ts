@@ -10,15 +10,19 @@ import type { AppObject } from '@/types'
 // d'édition) FINALISE le run en cours au lieu de jeter ses ancrages. Les autres
 // tracés (rect/cercle/arc) restent abandonnés. `state` minimal = ce dont
 // commitRun/buildAppObject ont besoin.
-// Drafts de test volontairement partiels (le store est encore JS, param any).
-const baseState = (draft: unknown) => ({
-  objects: {},
-  currentZone: 'sejour',
-  currentLevel: 'rdc',
-  cableSection: 'gaine20',
-  pipeSection: 'cuivre16',
-  draft,
-})
+// Drafts de test volontairement partiels : on cible le contrat de finalizeDraft
+// via son type de paramètre plutôt que de reconstruire un draft complet.
+type FinalizeArg = Parameters<typeof finalizeDraft>[0]
+const baseState = (draft: unknown): FinalizeArg =>
+  ({
+    objects: {},
+    currentZone: 'sejour',
+    currentLevel: 'rdc',
+    vcbText: '',
+    cableSection: 'gaine20',
+    pipeSection: 'cuivre16',
+    draft,
+  }) as FinalizeArg
 
 describe('finalizeDraft (persistance run — #28)', () => {
   it('run câble ≥ 2 sommets : committé en objet, draft soldé', () => {
