@@ -1,12 +1,11 @@
-import useStore from '../store/useStore.js'
-import useFullscreen from '@/hooks/useFullscreen.js'
+import useStore from '@/store/useStore'
+import useFullscreen from '@/hooks/useFullscreen'
 
-// E17-11 (issue #23) : bouton ⛶ flottant dans l'UI du mode visite. Sur mobile,
-// il masque la barre d'URL du navigateur pour une immersion type lecteur média.
+// E17-11 (issue #23) : bouton ⛶ flottant dans l'UI du mode visite. Sur mobile, il
+// masque la barre d'URL du navigateur pour une immersion type lecteur média.
 // L'API Fullscreen exige un geste utilisateur → pas de plein écran forcé au
-// chargement, d'où ce bouton. Coin haut-droit : dégage le burger (haut-gauche)
-// et les joysticks (bas). Masqué si l'API d'élément HTML est absente (Safari
-// iPhone), auquel cas le geste n'aurait aucun effet.
+// chargement, d'où ce bouton. Coin haut-droit : dégage le burger (haut-gauche) et
+// les joysticks (bas). Masqué si l'API d'élément HTML est absente (Safari iPhone).
 export default function VisitFullscreen() {
   const viewMode = useStore((state) => state.viewMode)
   const { supported, fullscreen, toggle } = useFullscreen()

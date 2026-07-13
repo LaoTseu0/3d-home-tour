@@ -4,9 +4,9 @@ import GLBLoader from './components/GLBLoader.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import InfoPanel from './components/InfoPanel.jsx'
 import VisitSticks from './components/VisitSticks.jsx'
-import VisitFullscreen from './components/VisitFullscreen.jsx'
-import VCBOverlay from './components/VCBOverlay.jsx'
-import ShortcutsOverlay from './components/ShortcutsOverlay.jsx'
+import VisitFullscreen from './components/VisitFullscreen'
+import VCBOverlay from './components/VCBOverlay'
+import ShortcutsOverlay from './components/ShortcutsOverlay'
 import useStore from './store/useStore.js'
 
 // Saisie VCB (E12-04) pendant un tracé : construit la chaîne tapée, valide à

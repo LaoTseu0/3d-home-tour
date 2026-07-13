@@ -1,11 +1,15 @@
-import useStore from '../store/useStore.js'
+import useStore from '@/store/useStore'
 
-// E19-07 : overlay modal listant tous les raccourcis clavier de l'app.
-// Ouvert par la touche « ? » (App.jsx) ou depuis la section More ;
-// ÉCHAP / clic hors panneau / ✕ ferme. Tenir à jour avec App.jsx (globaux,
-// VCB), EditBar (outils) et VisitControls (déplacements).
+// E19-07 : overlay modal listant tous les raccourcis clavier de l'app. Ouvert par
+// la touche « ? » (App) ou depuis la section More ; ÉCHAP / clic hors panneau / ✕
+// ferme. Tenir à jour avec App (globaux, VCB), EditBar (outils) et VisitControls.
 
-const GROUPS = [
+interface ShortcutGroup {
+  title: string
+  rows: [string, string][]
+}
+
+const GROUPS: ShortcutGroup[] = [
   {
     title: 'Général',
     rows: [
@@ -44,7 +48,10 @@ const GROUPS = [
       ['ZQSD / WASD / flèches', 'Se déplacer (touches physiques WASD)'],
       ['Souris', 'Regarder — clic pour verrouiller le pointeur'],
       ['Échap', 'Relâcher le verrou souris, puis quitter la visite'],
-      ['Manette · sticks tactiles', 'Stick gauche : se déplacer · stick droit : regarder'],
+      [
+        'Manette · sticks tactiles',
+        'Stick gauche : se déplacer · stick droit : regarder',
+      ],
     ],
   },
 ]

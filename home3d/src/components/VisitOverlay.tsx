@@ -1,7 +1,7 @@
-import useStore from '../store/useStore.js'
+import useStore from '@/store/useStore'
 
-// E17-01 : invite affichée en mode visite tant que le verrou souris n'est
-// pas pris. `pointer-events: none` : le clic traverse jusqu'au canvas, que
+// E17-01 : invite affichée en mode visite tant que le verrou souris n'est pas
+// pris. `pointer-events: none` : le clic traverse jusqu'au canvas, que
 // PointerLockControls intercepte pour verrouiller la souris.
 // E17-10 : sans pointeur fin (mobile/tablette), il n'y a rien à cliquer — le
 // verrou n'existe pas, les joysticks virtuels (VisitSticks) suffisent.

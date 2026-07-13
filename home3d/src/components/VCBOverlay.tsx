@@ -1,42 +1,59 @@
-import useStore from '../store/useStore.js'
+import useStore from '@/store/useStore'
+import type { ActiveTool } from '@/store/types'
+import type { ArcDraft, CircleDraft, Draft, RectDraft } from '@/types'
 
 // Boîte de mesure (VCB SketchUp, E12-04) : affiche les cotes du tracé en cours
 // (rectangle, cercle, arc) et la saisie clavier. HTML (hors Canvas) pour un texte
-// net, ancrée en bas à droite. Le clavier est capté par App.jsx ; ici on AFFICHE.
+// net, ancrée en bas à droite. Le clavier est capté par App ; ici on AFFICHE.
 
-const TOOLS_WITH_VCB = new Set(['rect', 'circle', 'arc'])
-const fmt = (m) => Number(m.toFixed(2)).toString().replace('.', ',')
+const TOOLS_WITH_VCB = new Set<ActiveTool>(['rect', 'circle', 'arc'])
+const fmt = (m: number) => Number(m.toFixed(2)).toString().replace('.', ',')
 
 // Libellé de la cote tirée pendant un drag sur axe (poignée / Push/Pull, E22-03).
-const PARAM_LABELS = {
+const PARAM_LABELS: Record<string, string> = {
   largeur_m: 'Largeur',
   profondeur_m: 'Profondeur',
   hauteur_m: 'Hauteur',
   rayon_m: 'Rayon',
 }
 
+interface VcbDisplay {
+  label: string
+  unit: string
+  live: string | null
+  hint: string
+}
+
 // Cote vive + libellé + invite, selon l'outil (et l'étape pour l'arc).
-function describe(activeTool, draft) {
+function describe(activeTool: ActiveTool, draft: Draft | null): VcbDisplay {
   if (activeTool === 'circle') {
-    const live = draft
-      ? fmt(Math.hypot(draft.current[0] - draft.start[0], draft.current[1] - draft.start[1]))
+    const d = draft as CircleDraft | null
+    const live = d
+      ? fmt(Math.hypot(d.current[0] - d.start[0], d.current[1] - d.start[1]))
       : null
     return { label: 'Rayon', unit: ' m', live, hint: 'Tapez R puis Entrée' }
   }
   if (activeTool === 'arc') {
-    if (!draft) {
+    const d = draft as ArcDraft | null
+    if (!d) {
       return { label: 'Arc', unit: '', live: null, hint: 'Cliquez le centre' }
     }
-    if (draft.stage === 'sweep') {
-      const deg = ((draft.sweepRad || 0) * 180) / Math.PI
-      return { label: 'Balayage', unit: '°', live: fmt(deg), hint: 'Tapez l’angle puis Entrée' }
+    if (d.stage === 'sweep') {
+      const deg = ((d.sweepRad || 0) * 180) / Math.PI
+      return {
+        label: 'Balayage',
+        unit: '°',
+        live: fmt(deg),
+        hint: 'Tapez l’angle puis Entrée',
+      }
     }
-    const r = Math.hypot(draft.current[0] - draft.center[0], draft.current[1] - draft.center[1])
+    const r = Math.hypot(d.current[0] - d.center[0], d.current[1] - d.center[1])
     return { label: 'Rayon', unit: ' m', live: fmt(r), hint: 'Tapez R puis Entrée' }
   }
   // rectangle
-  const live = draft
-    ? `${fmt(Math.abs(draft.current[0] - draft.start[0]))} ; ${fmt(Math.abs(draft.current[1] - draft.start[1]))}`
+  const d = draft as RectDraft | null
+  const live = d
+    ? `${fmt(Math.abs(d.current[0] - d.start[0]))} ; ${fmt(Math.abs(d.current[1] - d.start[1]))}`
     : null
   return { label: 'Dimensions', unit: ' m', live, hint: 'Tapez L ; P puis Entrée' }
 }
@@ -49,8 +66,8 @@ export default function VCBOverlay() {
   const vcbText = useStore((state) => state.vcbText)
 
   if (!editMode || (!extrude && !TOOLS_WITH_VCB.has(activeTool))) return null
-  // Drag sur axe en cours (poignée / Push/Pull, E22-03) : la cote tirée prime
-  // sur l'affichage d'outil — quel que soit l'outil actif (Sélection incluse).
+  // Drag sur axe en cours (poignée / Push/Pull, E22-03) : la cote tirée prime sur
+  // l'affichage d'outil — quel que soit l'outil actif (Sélection incluse).
   const { label, unit, live, hint } = extrude
     ? {
         label: PARAM_LABELS[extrude.paramKey] ?? 'Cote',
