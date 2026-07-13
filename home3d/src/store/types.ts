@@ -23,19 +23,20 @@ import type { JoineryVariant } from '@/types'
 /** Sections de la barre latérale (accordéon, E19). */
 export type MenuSection = 'calques' | 'edit' | 'vue' | 'more'
 
-/** Outil courant de la palette d'Edit mode. */
+/** Outil courant de la palette d'Edit mode (= ids de la barre d'outils). */
 export type ActiveTool =
   | 'select'
   | 'rect'
   | 'circle'
   | 'arc'
-  | 'window'
+  | 'opening'
   | 'door'
   | 'joinery'
   | 'elec'
   | 'cable'
   | 'pipe'
   | 'valve'
+  | 'pushpull'
 
 /** Mode caméra : orbite (défaut) ou visite (vol libre, E17). */
 export type ViewMode = 'orbit' | 'visit'

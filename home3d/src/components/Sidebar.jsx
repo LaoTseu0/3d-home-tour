@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import useStore from '../store/useStore.js'
 import LayerPanel from './LayerPanel.jsx'
-import EditBar from './EditBar.jsx'
+import EditBar from '@/features/edit/EditBar'
 import ViewSection from './ViewSection.jsx'
 import MoreSection from './MoreSection.jsx'
 
