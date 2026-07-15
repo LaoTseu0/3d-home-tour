@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import useStore from '@/store/useStore'
 import { generateObject, disposeObject } from '@/features/edit/registry'
 import { pickPushAxis } from '@/features/edit/pushpull'
+import useScenePicking from '@/features/edit/useScenePicking'
 import useAxisDrag from '@/features/edit/useAxisDrag'
 import DeformHandles from '@/components/canvas/DeformHandles'
 import { isOpeningKind } from '@/features/openings/opening'
@@ -112,20 +113,12 @@ export default function ObjectsLayer() {
   const selectedNode = useStore((state) => state.selectedNode)
   const selectNode = useStore((state) => state.selectNode)
   const editMode = useStore((state) => state.editMode)
-  const activeTool = useStore((state) => state.activeTool)
-  const viewMode = useStore((state) => state.viewMode)
   const extrude = useStore((state) => state.extrude)
 
-  // Sélection des objets app : alignée sur les objets importés (Model.jsx) —
-  // active en mode découverte (orbite) ET en Édition avec l'outil Sélection ;
-  // exclue en visite et pendant les outils de tracé/édition (E6-01).
-  const selectable = viewMode !== 'visit' && (!editMode || activeTool === 'select')
-  // Menuiserie (E14-05) : pas de surface d'esquisse — l'hôte du clic est une
-  // OUVERTURE déjà posée (son marqueur devient cliquable), pas une face de mur.
-  const hosting = editMode && activeTool === 'joinery'
-  // Vanne (E16-04) : même mécanique — la cible du clic est un TUYAU déjà routé.
-  const valving = editMode && activeTool === 'valve'
-  const pushable = editMode && activeTool === 'pushpull'
+  // Décision d'interaction PARTAGÉE avec les objets importés (Model.jsx) via
+  // useScenePicking : sélection active en découverte/Édition-Sélection ; drapeaux
+  // menuiserie (E14-05) / vanne (E16-04) / push-pull (E12-08) selon l'outil.
+  const { selectable, hosting, valving, pushable } = useScenePicking()
 
   // Pose de la menuiserie (E14-05) : clic sur une ouverture → cadre + vitrage
   // (fenêtre) ou vantail (porte, E14-07) ajustés à ses dims, liés par node name
@@ -189,10 +182,8 @@ export default function ObjectsLayer() {
   // E22-01 : poignées de déformation sur l'objet app sélectionné — visibles
   // seulement en (édition + outil Sélection), jamais en visite. Le registre
   // (deformHandles) décide quels kinds en portent (rect pour l'instant).
-  const selectedObj =
-    editMode && activeTool === 'select' && viewMode !== 'visit'
-      ? objects[selectedNode]
-      : undefined
+  // `selectable && editMode` ≡ (édition + Sélection + hors visite).
+  const selectedObj = selectable && editMode ? objects[selectedNode] : undefined
 
   return (
     <>
