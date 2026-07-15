@@ -4,6 +4,7 @@ import { useThree } from '@react-three/fiber'
 import useStore from '../../store/useStore.js'
 import { extractModelData, parseGLB, PipelineError } from '@/features/model-io/loadModel'
 import { applyAppearance, isChainVisible } from '@/features/layers/appearance'
+import useScenePicking from '@/features/edit/useScenePicking'
 
 // Rendu du GLB chargé + parse des fichiers déposés (E3-03 → E3-06),
 // sélection au clic (E6-01, E6-03), survol (E6-04) et application de
@@ -22,9 +23,6 @@ export default function Model() {
   const hoveredNode = useStore((state) => state.hoveredNode)
   const fitRequest = useStore((state) => state.fitRequest)
   const nodes = useStore((state) => state.nodes)
-  const viewMode = useStore((state) => state.viewMode)
-  const editMode = useStore((state) => state.editMode)
-  const activeTool = useStore((state) => state.activeTool)
   const selectNode = useStore((state) => state.selectNode)
   const hoverNode = useStore((state) => state.hoverNode)
   const setModel = useStore((state) => state.setModel)
@@ -141,7 +139,8 @@ export default function Model() {
   // (Rectangle/Push-Pull), on coupe aussi la surbrillance/sélection du modèle —
   // sinon survoler un mur l'allume en bleu et distrait du tracé (le plan
   // contextuel raycaste le modèle de son côté, indépendamment de ces handlers).
-  const passive = viewMode === 'visit' || (editMode && activeTool !== 'select')
+  const { selectable } = useScenePicking()
+  const passive = !selectable
 
   return glb ? (
     <primitive
